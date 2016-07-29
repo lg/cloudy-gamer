@@ -1,0 +1,48 @@
+{
+  "globals": {
+    "AWS": false
+  },
+
+  "parserOptions": {
+    "ecmaVersion": 6,
+    "sourceType": "script",
+    "ecmaFeatures": {
+      "impliedStrict": true
+    }
+  },
+
+  "env": {
+    // I write for browser
+    "browser": true,
+    "es6": true
+  },
+
+  "extends": "eslint:all",
+  "rules": {
+    "no-unused-vars": ["error", {"vars": "local", "argsIgnorePattern": "^_"}],
+    "no-warning-comments": "off",
+    "semi": ["error", "never"],
+    "one-var": "off",
+    "indent": ["error", 2],
+    "space-before-function-paren": ["error", "never"],
+    "padded-blocks": "off",
+    "object-curly-newline": "off",
+    "quote-props": ["error", "consistent-as-needed"],
+    "no-console": "off",
+    "no-debugger": "off",
+    "no-inline-comments": "off",
+    "arrow-parens": ["error", "as-needed"],
+    "max-len": "off",
+    "no-confusing-arrow": "off",
+    "multiline-ternary": "off",
+    "no-ternary": "off",
+    "no-magic-numbers": ["error", {"ignore": [0, 1, 60000]}],
+    "no-extra-parens": ["error", "all", { "nestedBinaryExpressions": false }],
+    "arrow-body-style": "off",
+    "newline-before-return": "off",
+    "id-length": ["error", {"exceptions": ["_"]}],
+    "newline-per-chained-call": "off"
+  },
+
+  "root": true
+}
