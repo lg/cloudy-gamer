@@ -1,0 +1,37 @@
+<script src="https://sdk.amazonaws.com/js/aws-sdk-2.3.19.js"></script>
+<script src="utility.js"></script>
+<script src="cloudy-gamer.js"></script>
+
+instance status: <span id='instance-status'>(retrieving)</span><br/>
+volume status: <span id='volume-status'>(retrieving)</span><br/>
+<button onclick="javascript:updateStatuses()">update status</button><br/>
+<br/>
+<button onclick="javascript:cg.startInstance()">start instance</button>
+<button onclick="javascript:cg.stopInstance()">stop instance</button><br/>
+
+<script>
+  self.cg = new CloudyGamer()
+
+  self.updateStatuses = () => {
+    const instanceStatusEl = document.querySelector("#instance-status")
+    const volumeStatusEl = document.querySelector("#volume-status")
+
+    instanceStatusEl.textContent = "(retrieving)"
+    volumeStatusEl.textContent = "(retrieving)"
+    self.cg.getInstance().then(result => {
+      if (result) {
+        self.cg.isInstanceOnline(result.InstanceId).then(isOnline => {
+          instanceStatusEl.textContent = `running (${result.InstanceId}, ${result.PublicIpAddress}, ${isOnline ? "online" : "offline"})`
+        })
+
+      } else {
+        instanceStatusEl.textContent = "not running"
+      }
+    })
+    self.cg.isVolumeAvailable().then(result => {
+      volumeStatusEl.textContent = result ? "available" : "in use"
+    })
+  }
+
+  self.updateStatuses()
+</script>

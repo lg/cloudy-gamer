@@ -1,5 +1,3 @@
-// python -m SimpleHTTPServer 8000
-
 // TODO: support vpc machines too
 // TODO: remove the requirement for us-west-2a
 // TODO: validate that the volume is available
