@@ -18,9 +18,11 @@ const FULFILLMENT_TIMEOUT_MINUTES = 5
 
 class CloudyGamer {
   constructor() {
-    AWS.config.update({accessKeyId: ACCESS_KEY,
-      secretAccessKey: SECRET_ACCESS_KEY})
-    AWS.config.region = REGION
+    AWS.config.update({
+      accessKeyId: ACCESS_KEY,
+      secretAccessKey: SECRET_ACCESS_KEY,
+      region: REGION
+    })
 
     this.ec2 = new AWS.EC2()
     this.ssm = new AWS.SSM()
