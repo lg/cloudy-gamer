@@ -7,13 +7,14 @@
 
 const ACCESS_KEY = "***REMOVED***"
 const SECRET_ACCESS_KEY = "***REMOVED***"
-const REGION = "us-west-2"
-const AMI = "ami-861ddde6"
-const SECURITY_GROUP = "sg-3a5edb09"
+const REGION = "us-west-1"
+const REGION_AND_ZONE = "us-west-1c"
+const AMI = "ami-bfce84df"                    // for cloudygamer-loader5
+const CLOUDYGAMER_VOLUME = "vol-bc946403"     // for cloudygamer-09052016-2140 (or later) as gp2
+const SECURITY_GROUP = "sg-4fa5f40a"
 const EXTRA_DOLLARS = 0.10
 const TOO_EXPENSIVE = 1.00
-const CLOUDYGAMER_VOLUME = "vol-475df2ce"
-const IAM_ROLE_NAME = "CloudyGamer_EC2_Role"
+const IAM_ROLE_NAME = "CloudyGamer_EC2_Role"  // has AmazonEC2RoleforSSM attached to it
 const FULFILLMENT_TIMEOUT_MINUTES = 5
 
 class CloudyGamer {
@@ -46,7 +47,7 @@ class CloudyGamer {
   startInstance() {
     console.log("Looking for lowest price...")
     this.ec2.describeSpotPriceHistory({
-      AvailabilityZone: "us-west-2a",     // remove this
+      AvailabilityZone: REGION_AND_ZONE,
       ProductDescriptions: ["Linux/UNIX"],  // 'Linux/UNIX (Amazon VPC)'],
       InstanceTypes: ["g2.2xlarge", "g2.8xlarge"],
       MaxResults: 100}).promise().
