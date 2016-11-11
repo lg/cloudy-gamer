@@ -10,12 +10,14 @@ const SECRET_ACCESS_KEY = "***REMOVED***"
 const REGION = "us-west-1"
 const REGION_AND_ZONE = "us-west-1c"
 const AMI = "ami-bfce84df"                    // for cloudygamer-loader5
-const CLOUDYGAMER_VOLUME = "vol-bc946403"     // for cloudygamer-09052016-2140 (or later) as gp2
+const CLOUDYGAMER_VOLUME = "vol-70f90acf"     // for cloudygamer-09052016-2140 (or later) as gp2
 const SECURITY_GROUP = "sg-4fa5f40a"
 const EXTRA_DOLLARS = 0.10
 const TOO_EXPENSIVE = 1.00
 const IAM_ROLE_NAME = "CloudyGamer_EC2_Role"  // has AmazonEC2RoleforSSM attached to it
 const FULFILLMENT_TIMEOUT_MINUTES = 5
+const AMI_USERNAME = "Administrator"
+const AMI_PASSWORD = "***REMOVED***1"
 
 class CloudyGamer {
   constructor() {
