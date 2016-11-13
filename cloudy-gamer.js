@@ -5,7 +5,7 @@
 // TODO: use a shared policy from my account (so everyone doesnt need it), maybe
 //       security policy too
 
-const ACCESS_KEY = "***REMOVED***"
+const ACCESS_KEY = "***REMOVED***"     // for ec2-gaming user
 const SECRET_ACCESS_KEY = "***REMOVED***"
 const REGION = "us-west-1"
 const REGION_AND_ZONE = "us-west-1c"
@@ -48,7 +48,7 @@ class CloudyGamer {
 
   startInstance() {
     console.log("Looking for lowest price...")
-    this.ec2.describeSpotPriceHistory({
+    return this.ec2.describeSpotPriceHistory({
       AvailabilityZone: REGION_AND_ZONE,
       ProductDescriptions: ["Linux/UNIX"],  // 'Linux/UNIX (Amazon VPC)'],
       InstanceTypes: ["g2.2xlarge", "g2.8xlarge"],
@@ -170,9 +170,27 @@ class CloudyGamer {
         console.log("Waiting for termination...")
         return this.ec2.waitFor("instanceTerminated", {
           InstanceIds: [instanceId]}).promise()
+      }).then(_ => {
+        console.log("Done terminating!")
       })
-    }).then(_ => {
-      console.log("Done terminating!")
+    })
+  }
+
+  restartSteam() {
+    return this.getInstance().then(instance => {
+      console.log("Sending restart command...")
+      return this.ssm.sendCommand({
+        DocumentName: "AWS-RunPowerShellScript",
+        InstanceIds: [instance.InstanceId],
+        Parameters: {
+          commands: ["Start-ScheduledTask \"CloudyGamer Restart Steam\""]
+        }}).promise().
+      then(_ => {
+        console.log("Steam restart command successfully sent")
+        return
+      })
+    }).catch(err => {
+      console.error(err)
     })
   }
 
@@ -213,7 +231,7 @@ class CloudyGamer {
         return data.Reservations[0].Instances[0]
       }
 
-      return null
+      throw new Error("cloudygamer instance not found")
     })
   }
 }

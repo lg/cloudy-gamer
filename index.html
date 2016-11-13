@@ -6,11 +6,28 @@ instance status: <span id='instance-status'>(retrieving)</span><br/>
 volume status: <span id='volume-status'>(retrieving)</span><br/>
 <button onclick="javascript:updateStatuses()">update status</button><br/>
 <br/>
-<button onclick="javascript:cg.startInstance()">start instance</button>
-<button onclick="javascript:cg.stopInstance()">stop instance</button><br/>
+<button onclick="javascript:startInstance()">start instance</button>
+<button onclick="javascript:stopInstance()">stop instance</button><br/>
+<button onclick="javascript:cg.restartSteam()">restart steam</button><br/>
+<br/>
+<span id='cur-status'></span><br/>
+<br/>
+
 
 <script>
   self.cg = new CloudyGamer()
+
+  self.startInstance = () => {
+    self.cg.startInstance().then(_ => {
+      self.updateStatuses()
+    })
+  }
+
+  self.stopInstance = () => {
+    self.cg.stopInstance().then(_ => {
+      self.updateStatuses()
+    })
+  }
 
   self.updateStatuses = () => {
     const instanceStatusEl = document.querySelector("#instance-status")
@@ -19,17 +36,15 @@ volume status: <span id='volume-status'>(retrieving)</span><br/>
     instanceStatusEl.textContent = "(retrieving)"
     volumeStatusEl.textContent = "(retrieving)"
     self.cg.getInstance().then(result => {
-      if (result) {
-        self.cg.isInstanceOnline(result.InstanceId).then(isOnline => {
-          const rdpUrl = `rdp://full%20address=s:${result.PublicIpAddress}:3389&username=s:Administrator&desktopwidth=i:1024&desktopheight=i:768`
+      self.cg.isInstanceOnline(result.InstanceId).then(isOnline => {
+        const rdpUrl = `rdp://full%20address=s:${result.PublicIpAddress}:3389&username=s:Administrator&desktopwidth=i:1024&desktopheight=i:768`
 
-          instanceStatusEl.innerHTML = `running (${result.InstanceId}, <a href='${rdpUrl}'>${result.PublicIpAddress}</a>, ${isOnline ? "online" : "offline"})`
-        })
-
-      } else {
-        instanceStatusEl.textContent = "not running"
-      }
+        instanceStatusEl.innerHTML = `running (${result.InstanceId}, <a href='${rdpUrl}'>${result.PublicIpAddress}</a>, ${isOnline ? "online" : "offline"})`
+      })
+    }).catch(_ => {
+      instanceStatusEl.textContent = "not running"
     })
+
     self.cg.isVolumeAvailable().then(result => {
       volumeStatusEl.textContent = result ? "available" : "in use"
     })
