@@ -10,14 +10,15 @@ const SECRET_ACCESS_KEY = "***REMOVED***"
 const REGION = "us-west-1"
 const REGION_AND_ZONE = "us-west-1c"
 const AMI = "ami-bfce84df"                    // for cloudygamer-loader5
-const CLOUDYGAMER_VOLUME = "vol-70f90acf"     // for cloudygamer-09052016-2140 (or later) as gp2
+const CLOUDYGAMER_VOLUME = "vol-5d985fe2"     // for cloudygamer-win2016-110916 (or later) as gp2
 const SECURITY_GROUP = "sg-4fa5f40a"
+const SECURITY_GROUP_VPC = "sg-65c7dc01"
+const SUBNET_ID_VPC = "subnet-a17abcf9"
 const EXTRA_DOLLARS = 0.10
 const TOO_EXPENSIVE = 1.00
 const IAM_ROLE_NAME = "CloudyGamer_EC2_Role"  // has AmazonEC2RoleforSSM attached to it
 const FULFILLMENT_TIMEOUT_MINUTES = 5
-const AMI_USERNAME = "Administrator"
-const AMI_PASSWORD = "***REMOVED***1"
+const AMI_USERNAME = "cloudygamer"
 
 class CloudyGamer {
   constructor() {
@@ -46,39 +47,51 @@ class CloudyGamer {
     }
   }
 
-  startInstance() {
-    console.log("Looking for lowest price...")
-    return this.ec2.describeSpotPriceHistory({
-      AvailabilityZone: REGION_AND_ZONE,
-      ProductDescriptions: ["Linux/UNIX"],  // 'Linux/UNIX (Amazon VPC)'],
-      InstanceTypes: ["g2.2xlarge", "g2.8xlarge"],
-      MaxResults: 100}).promise().
-    then(data => {
-      const zones = new Map()
+  findLowestPrice() {
+    const promises = []
+    let histories = []
 
-      for (const price of data.SpotPriceHistory) {
+    console.log("Looking for lowest price...")
+    for (const product of ['Linux/UNIX', 'Linux/UNIX (Amazon VPC)', 'Windows', 'Windows (Amazon VPC)']) {
+      promises.push(this.ec2.describeSpotPriceHistory({
+        AvailabilityZone: REGION_AND_ZONE,
+        ProductDescriptions: [product],
+        InstanceTypes: ["g2.2xlarge", "g2.8xlarge"],
+        MaxResults: 100}).promise().then((data) => {
+          histories = histories.concat(data.SpotPriceHistory)
+        })
+      )
+    }
+
+    return Promise.all(promises).then(() => {
+      const zones = new Map()
+      let lowest = histories[0]
+
+      for (const price of histories) {
         const key = `${price.AvailabilityZone}-${price.InstanceType}-${price.ProductDescription}`
 
-        if (!zones.get(key)) {
+        if (!zones.get(key) || price.Timestamp > zones.get(key).Timestamp) {
           zones.set(key, price)
+          if (parseFloat(price.SpotPrice) <= parseFloat(lowest.SpotPrice)) {
+            lowest = price
+          }
         }
       }
 
-      const lowest = [...zones.entries()].reduce((prev, cur) =>
-        parseFloat(cur.SpotPrice) <= parseFloat(prev.SpotPrice) ? cur : prev
-      )[1]
-
-      console.log(`Found a ${lowest.InstanceType} at $${lowest.SpotPrice} in ${lowest.AvailabilityZone} ${lowest.ProductDescription.includes("VPN") ? "(VPC)" : "(not VPC)"}`)
+      console.log(`Found a ${lowest.InstanceType} on ${lowest.ProductDescription} at $${lowest.SpotPrice} in ${lowest.AvailabilityZone}`)
 
       if (Number(lowest.SpotPrice) >= TOO_EXPENSIVE) {
         throw new Error("Too expensive!")
       }
 
       return lowest
+    })
+  }
 
-    }).
-    then(lowest => {
+  startInstance() {
+    return this.findLowestPrice().then(lowest => {
       console.log("Requesting spot instance...")
+      const isVPC = lowest.ProductDescription.includes("VPC")
 
       return this.ec2.requestSpotInstances({
         SpotPrice: (Number(lowest.SpotPrice) + EXTRA_DOLLARS).toString(),
@@ -86,12 +99,18 @@ class CloudyGamer {
         Type: "one-time",
         LaunchSpecification: {
           ImageId: AMI,
-          SecurityGroupIds: [SECURITY_GROUP],
+          SecurityGroupIds: isVPC ? null : [SECURITY_GROUP],
           InstanceType: lowest.InstanceType,
           Placement: {
             AvailabilityZone: lowest.AvailabilityZone
           },
-          EbsOptimized: true,
+          EbsOptimized: lowest.InstanceType == "g2.2xlarge" ? true : null,
+          NetworkInterfaces: !isVPC ? null : [{
+            DeviceIndex: 0,
+            SubnetId: SUBNET_ID_VPC,
+            AssociatePublicIpAddress: true,
+            Groups: [SECURITY_GROUP_VPC]
+          }],
           IamInstanceProfile: {
             Name: IAM_ROLE_NAME
           }

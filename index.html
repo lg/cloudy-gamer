@@ -37,7 +37,7 @@ volume status: <span id='volume-status'>(retrieving)</span><br/>
     volumeStatusEl.textContent = "(retrieving)"
     self.cg.getInstance().then(result => {
       self.cg.isInstanceOnline(result.InstanceId).then(isOnline => {
-        const rdpUrl = `rdp://full%20address=s:${result.PublicIpAddress}:3389&username=s:Administrator&desktopwidth=i:1024&desktopheight=i:768`
+        const rdpUrl = `rdp://full%20address=s:${result.PublicIpAddress}:3389&username=s:cloudygamer&desktopwidth=i:1024&desktopheight=i:768`
 
         instanceStatusEl.innerHTML = `running (${result.InstanceId}, <a href='${rdpUrl}'>${result.PublicIpAddress}</a>, ${isOnline ? "online" : "offline"})`
       })
