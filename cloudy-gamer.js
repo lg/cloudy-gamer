@@ -52,11 +52,11 @@ class CloudyGamer {
     let histories = []
 
     console.log("Looking for lowest price...")
-    for (const product of ['Linux/UNIX', 'Linux/UNIX (Amazon VPC)', 'Windows', 'Windows (Amazon VPC)']) {
+    for (const product of ['Linux/UNIX', 'Linux/UNIX (Amazon VPC)'/*, 'Windows', 'Windows (Amazon VPC)'*/]) {
       promises.push(this.ec2.describeSpotPriceHistory({
         AvailabilityZone: REGION_AND_ZONE,
         ProductDescriptions: [product],
-        InstanceTypes: ["g2.2xlarge", "g2.8xlarge"],
+        InstanceTypes: ["g2.2xlarge" /*, "g2.8xlarge"*/],
         MaxResults: 100}).promise().then((data) => {
           histories = histories.concat(data.SpotPriceHistory)
         })
