@@ -1,5 +1,6 @@
 <script src="https://sdk.amazonaws.com/js/aws-sdk-2.3.19.js"></script>
 <script src="utility.js"></script>
+<script src="secrets.js"></script>
 <script src="cloudy-gamer.js"></script>
 
 instance status: <span id='instance-status'>(retrieving)</span><br/>
@@ -13,9 +14,12 @@ volume status: <span id='volume-status'>(retrieving)</span><br/>
 <span id='cur-status'></span><br/>
 <br/>
 
+<div id='config-container'>
+sup brah
+</div>
 
 <script>
-  self.cg = new CloudyGamer()
+  self.cg = new CloudyGamer(document.ACCESS_KEY, document.SECRET_ACCESS_KEY)
 
   self.startInstance = () => {
     self.cg.startInstance().then(_ => {

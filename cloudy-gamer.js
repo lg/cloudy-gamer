@@ -5,8 +5,6 @@
 // TODO: use a shared policy from my account (so everyone doesnt need it), maybe
 //       security policy too
 
-const ACCESS_KEY = "***REMOVED***"     // for ec2-gaming user
-const SECRET_ACCESS_KEY = "***REMOVED***"
 const REGION = "us-west-1"
 const REGION_AND_ZONE = "us-west-1c"
 const AMI = "ami-bfce84df"                    // for cloudygamer-loader5
@@ -21,10 +19,10 @@ const FULFILLMENT_TIMEOUT_MINUTES = 5
 const AMI_USERNAME = "cloudygamer"
 
 class CloudyGamer {
-  constructor() {
+  constructor(awsAccessKey, awsSecretAccessKey) {
     AWS.config.update({
-      accessKeyId: ACCESS_KEY,
-      secretAccessKey: SECRET_ACCESS_KEY,
+      accessKeyId: awsAccessKey,
+      secretAccessKey: awsSecretAccessKey,
       region: REGION
     })
 
@@ -49,16 +47,16 @@ class CloudyGamer {
 
   findLowestPrice() {
     const promises = []
-    let histories = []
+    const histories = []
 
     console.log("Looking for lowest price...")
-    for (const product of ['Linux/UNIX', 'Linux/UNIX (Amazon VPC)'/*, 'Windows', 'Windows (Amazon VPC)'*/]) {
+    for (const product of ["Linux/UNIX", "Linux/UNIX (Amazon VPC)"]) {  /* 'Windows', 'Windows (Amazon VPC)' */
       promises.push(this.ec2.describeSpotPriceHistory({
         AvailabilityZone: REGION_AND_ZONE,
         ProductDescriptions: [product],
-        InstanceTypes: ["g2.2xlarge" /*, "g2.8xlarge"*/],
-        MaxResults: 100}).promise().then((data) => {
-          histories = histories.concat(data.SpotPriceHistory)
+        InstanceTypes: ["g2.2xlarge"],     /* "g2.8xlarge" */
+        MaxResults: 100}).promise().then(data => {
+          histories.push(...data.SpotPriceHistory)
         })
       )
     }
@@ -104,13 +102,13 @@ class CloudyGamer {
           Placement: {
             AvailabilityZone: lowest.AvailabilityZone
           },
-          EbsOptimized: lowest.InstanceType == "g2.2xlarge" ? true : null,
-          NetworkInterfaces: !isVPC ? null : [{
+          EbsOptimized: lowest.InstanceType === "g2.2xlarge" ? true : null,
+          NetworkInterfaces: isVPC ? [{
             DeviceIndex: 0,
             SubnetId: SUBNET_ID_VPC,
             AssociatePublicIpAddress: true,
             Groups: [SECURITY_GROUP_VPC]
-          }],
+          }] : null,
           IamInstanceProfile: {
             Name: IAM_ROLE_NAME
           }
@@ -206,7 +204,6 @@ class CloudyGamer {
         }}).promise().
       then(_ => {
         console.log("Steam restart command successfully sent")
-        return
       })
     }).catch(err => {
       console.error(err)
