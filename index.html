@@ -1,6 +1,5 @@
 <script src="https://sdk.amazonaws.com/js/aws-sdk-2.3.19.js"></script>
 <script src="utility.js"></script>
-<script src="secrets.js"></script>
 <script src="cloudy-gamer.js"></script>
 
 instance status: <span id='instance-status'>(retrieving)</span><br/>
@@ -14,12 +13,68 @@ volume status: <span id='volume-status'>(retrieving)</span><br/>
 <span id='cur-status'></span><br/>
 <br/>
 
-<div id='config-container'>
-sup brah
-</div>
+<div id='config-container'></div>
+<button onclick="javascript:saveConfigFromDOM()">save config</button><br/>
 
 <script>
-  self.cg = new CloudyGamer(document.ACCESS_KEY, document.SECRET_ACCESS_KEY)
+  self.configKeysAndDefaults = {
+    awsAccessKey: "",
+    awsSecretAccessKey: "",
+    awsRegion: "us-west-1",
+    awsRegionZone: "us-west-1c",
+    awsLinuxAMI: "ami-bfce84df",    // AMI of ubuntu image with rearranged boot menu
+    awsVolumeId: "",
+    awsSecurityGroupId: "",
+    awsSecurityGroupVPCId: "",
+    awsSubnetVPCId: "",
+    awsIAMRoleName: ""              // Used by EC2 instance for SSM (needs AmazonEC2RoleforSSM)
+  }
+  self.config = null
+  self.cg = null
+
+  self.start = () => {
+    self.loadConfig()
+    self.loadConfigIntoDOM()
+
+    self.cg = new CloudyGamer(self.config)
+    self.updateStatuses()
+  }
+
+  self.loadConfig = () => {
+    self.config = JSON.parse(localStorage.cloudygamer || "{}")
+
+    for (const configKey of Object.keys(self.configKeysAndDefaults)) {
+      if (typeof self.config[configKey] === "undefined") {
+        self.config[configKey] = self.configKeysAndDefaults[configKey]
+      }
+    }
+
+    self.saveConfig()
+  }
+
+  self.saveConfig = () => {
+    localStorage.cloudygamer = JSON.stringify(self.config)
+  }
+
+  self.saveConfigFromDOM = () => {
+    for (const configKey of Object.keys(self.configKeysAndDefaults)) {
+      self.config[configKey] = document.querySelector(`#${configKey}`).value
+      if (typeof self.configKeysAndDefaults[configKey] === "number") {
+        self.config[configKey] = Number(self.config[configKey])
+      }
+    }
+    self.saveConfig()
+  }
+
+  self.loadConfigIntoDOM = () => {
+    for (const configKey of Object.keys(self.configKeysAndDefaults)) {
+      const containerDiv = document.querySelector("#config-container")
+      const fieldDiv = document.createElement("div")
+
+      fieldDiv.innerHTML = `<label for="${configKey}">${configKey}</label><input type="text" id="${configKey}" value="${self.config[configKey]}"/><br/>`
+      containerDiv.appendChild(fieldDiv)
+    }
+  }
 
   self.startInstance = () => {
     self.cg.startInstance().then(_ => {
@@ -54,5 +109,5 @@ sup brah
     })
   }
 
-  self.updateStatuses()
+  self.start()
 </script>

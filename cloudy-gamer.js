@@ -5,25 +5,18 @@
 // TODO: use a shared policy from my account (so everyone doesnt need it), maybe
 //       security policy too
 
-const REGION = "us-west-1"
-const REGION_AND_ZONE = "us-west-1c"
-const AMI = "ami-bfce84df"                    // for cloudygamer-loader5
-const CLOUDYGAMER_VOLUME = "vol-4a07c0f5"     // for cloudygamer-win2016-110916 (or later) as gp2
-const SECURITY_GROUP = "sg-4fa5f40a"
-const SECURITY_GROUP_VPC = "sg-65c7dc01"
-const SUBNET_ID_VPC = "subnet-a17abcf9"
 const EXTRA_DOLLARS = 0.10
 const TOO_EXPENSIVE = 1.50
-const IAM_ROLE_NAME = "CloudyGamer_EC2_Role"  // has AmazonEC2RoleforSSM attached to it
 const FULFILLMENT_TIMEOUT_MINUTES = 5
-const AMI_USERNAME = "cloudygamer"
 
 class CloudyGamer {
-  constructor(awsAccessKey, awsSecretAccessKey) {
+  constructor(config) {
+    this.config = config
+
     AWS.config.update({
-      accessKeyId: awsAccessKey,
-      secretAccessKey: awsSecretAccessKey,
-      region: REGION
+      accessKeyId: this.config.awsAccessKey,
+      secretAccessKey: this.config.awsSecretAccessKey,
+      region: this.config.awsRegion
     })
 
     this.ec2 = new AWS.EC2()
@@ -52,7 +45,7 @@ class CloudyGamer {
     console.log("Looking for lowest price...")
     for (const product of ["Linux/UNIX", "Linux/UNIX (Amazon VPC)"]) {  /* 'Windows', 'Windows (Amazon VPC)' */
       promises.push(this.ec2.describeSpotPriceHistory({
-        AvailabilityZone: REGION_AND_ZONE,
+        AvailabilityZone: this.config.awsRegionZone,
         ProductDescriptions: [product],
         InstanceTypes: ["g2.2xlarge"],     /* "g2.8xlarge" */
         MaxResults: 100}).promise().then(data => {
@@ -96,8 +89,8 @@ class CloudyGamer {
         ValidUntil: new Date((new Date()).getTime() + (60000 * FULFILLMENT_TIMEOUT_MINUTES)),
         Type: "one-time",
         LaunchSpecification: {
-          ImageId: AMI,
-          SecurityGroupIds: isVPC ? null : [SECURITY_GROUP],
+          ImageId: this.config.awsLinuxAMI,
+          SecurityGroupIds: isVPC ? null : [this.config.awsSecurityGroupId],
           InstanceType: lowest.InstanceType,
           Placement: {
             AvailabilityZone: lowest.AvailabilityZone
@@ -105,12 +98,12 @@ class CloudyGamer {
           EbsOptimized: lowest.InstanceType === "g2.2xlarge" ? true : null,
           NetworkInterfaces: isVPC ? [{
             DeviceIndex: 0,
-            SubnetId: SUBNET_ID_VPC,
+            SubnetId: this.config.awsSubnetVPCId,
             AssociatePublicIpAddress: true,
-            Groups: [SECURITY_GROUP_VPC]
+            Groups: [this.config.awsSecurityGroupVPCId]
           }] : null,
           IamInstanceProfile: {
-            Name: IAM_ROLE_NAME
+            Name: this.config.awsIAMRoleName
           }
         }
       }).promise().
@@ -145,12 +138,12 @@ class CloudyGamer {
       console.log("Attaching cloudygamer volume...")
 
       return this.ec2.attachVolume({
-        VolumeId: CLOUDYGAMER_VOLUME,
+        VolumeId: this.config.awsVolumeId,
         InstanceId: instanceId,
         Device: "/dev/xvdb"}).promise().
       then(_ => {
         return this.ec2.waitFor("volumeInUse", {
-          VolumeIds: [CLOUDYGAMER_VOLUME],
+          VolumeIds: [this.config.awsVolumeId],
           Filters: [{
             Name: "attachment.status",
             Values: ["attached"]
@@ -212,7 +205,7 @@ class CloudyGamer {
 
   isVolumeAvailable() {
     return this.ec2.describeVolumes({
-      VolumeIds: [CLOUDYGAMER_VOLUME]}).promise().
+      VolumeIds: [this.config.awsVolumeId]}).promise().
     then(data => {
       return data.Volumes[0].State === "available"
     })
@@ -235,7 +228,7 @@ class CloudyGamer {
     } : {
       Filters: [{
         Name: "image-id",
-        Values: [AMI]
+        Values: [this.config.awsLinuxAMI]
       }, {
         Name: "instance-state-name",
         Values: ["pending", "running", "stopping"]
