@@ -1,0 +1,25 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Stmt1465621206000",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeSpotPriceHistory",
+                "ec2:RequestSpotInstances",
+                "ec2:DescribeSpotInstanceRequests",
+                "ec2:AttachVolume",
+                "ec2:DescribeVolumes",
+                "ec2:DescribeInstances",
+                "ec2:DescribeInstanceStatus",
+                "ec2:TerminateInstances",
+                "iam:PassRole",
+                "ssm:DescribeInstanceInformation",
+                "ssm:SendCommand"
+            ],
+            "Resource": [
+                "*"
+            ]
+        }
+    ]
+}
