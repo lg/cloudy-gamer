@@ -1,4 +1,3 @@
-// TODO: support vpc machines too
 // TODO: remove the requirement for us-west-2a
 // TODO: validate that the volume is available
 // TODO: respond to 1-minute-warning
@@ -22,6 +21,9 @@ class CloudyGamer {
     this.ec2 = new AWS.EC2()
     this.ssm = new AWS.SSM()
 
+    this.securityGroupId = null
+    this.vpcSecurityGroupId = null
+
     this.ssm.api.waiters = {
       InstanceOnline: {
         name: "InstanceOnline",
@@ -36,6 +38,61 @@ class CloudyGamer {
         operation: "describeInstanceInformation"
       }
     }
+  }
+
+  ensureResourcesExist() {
+    console.log("Ensuring resources (security groups) exist...")
+    return this.ec2.describeSecurityGroups({
+      Filters: [{
+        Name: "group-name",
+        Values: ["cloudygamer"]
+      }]
+    }).promise().then(groups => {
+      const vpcSecurityGroup = groups.SecurityGroups.find(group => group.VpcId)
+      const securityGroup = groups.SecurityGroups.find(group => !group.VpcId)
+      const toCreate = []
+
+      if (securityGroup) {
+        this.securityGroupId = securityGroup.GroupId
+      } else {
+        console.log("Creating non-VPC security group...")
+        toCreate.push(this.ec2.createSecurityGroup({
+          GroupName: "cloudygamer",
+          Description: "cloudygamer"
+        }).promise().then(newSecurityGroup => {
+          this.securityGroupId = newSecurityGroup.GroupId
+          return this.ec2.authorizeSecurityGroupIngress({
+            GroupId: newSecurityGroup.GroupId,
+            IpPermissions: [
+              {FromPort: 0, IpProtocol: "tcp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 65535},
+              {FromPort: 0, IpProtocol: "udp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 65535},
+              {FromPort: -1, IpProtocol: "icmp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: -1}
+            ]
+          }).promise()
+        }))
+      }
+
+      if (vpcSecurityGroup) {
+        this.vpcSecurityGroupId = vpcSecurityGroup.GroupId
+      } else {
+        console.log("Creating VPC security group...")
+        toCreate.push(this.ec2.createSecurityGroup({
+          GroupName: "cloudygamer",
+          Description: "cloudygamer",
+          VpcId: this.config.awsVPCId
+        }).promise().then(newSecurityGroup => {
+          this.vpcSecurityGroupId = newSecurityGroup.GroupId
+          return this.ec2.authorizeSecurityGroupIngress({
+            GroupId: newSecurityGroup.GroupId,
+            IpPermissions: [
+              {IpProtocol: "-1", IpRanges: [{CidrIp: "0.0.0.0/0"}]}
+            ]
+          }).promise()
+        }))
+      }
+
+      return Promise.all(toCreate)
+    })
   }
 
   findLowestPrice() {
@@ -80,7 +137,11 @@ class CloudyGamer {
   }
 
   startInstance() {
-    return this.findLowestPrice().then(lowest => {
+    return this.ensureResourcesExist().
+    then(() => {
+      return this.findLowestPrice()
+    }).
+    then(lowest => {
       console.log("Requesting spot instance...")
       const isVPC = lowest.ProductDescription.includes("VPC")
 
@@ -90,7 +151,7 @@ class CloudyGamer {
         Type: "one-time",
         LaunchSpecification: {
           ImageId: this.config.awsLinuxAMI,
-          SecurityGroupIds: isVPC ? null : [this.config.awsSecurityGroupId],
+          SecurityGroupIds: isVPC ? null : [this.securityGroupId],
           InstanceType: lowest.InstanceType,
           Placement: {
             AvailabilityZone: lowest.AvailabilityZone
@@ -100,7 +161,7 @@ class CloudyGamer {
             DeviceIndex: 0,
             SubnetId: this.config.awsSubnetVPCId,
             AssociatePublicIpAddress: true,
-            Groups: [this.config.awsSecurityGroupVPCId]
+            Groups: [this.vpcSecurityGroupId]
           }] : null,
           IamInstanceProfile: {
             Name: this.config.awsIAMRoleName

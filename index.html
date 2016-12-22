@@ -4,7 +4,8 @@
 cloudygamer by larry gadea - <a href="https://github.com/lg/cloudy-gamer/">github source and help</a><br/><br/>
 instance status: <span id='instance-status'>(retrieving)</span><br/>
 volume status: <span id='volume-status'>(retrieving)</span><br/>
-<button onclick="javascript:updateStatuses()">update status</button><br/>
+<button onclick="javascript:updateStatuses()">update status</button>
+<button onclick="javascript:cg.ensureResourcesExist()">ensure resources exist</button><br/>
 <br/>
 <button onclick="javascript:startInstance()">start instance</button>
 <button onclick="javascript:stopInstance()">stop instance</button><br/>
@@ -24,8 +25,7 @@ volume status: <span id='volume-status'>(retrieving)</span><br/>
     awsRegionZone: "us-west-1c",
     awsLinuxAMI: "ami-bfce84df",    // AMI of ubuntu image with rearranged boot menu
     awsVolumeId: "",
-    awsSecurityGroupId: "",
-    awsSecurityGroupVPCId: "",
+    awsVPCId: "",
     awsSubnetVPCId: "",
     awsIAMRoleName: ""              // Used by EC2 instance for SSM (needs AmazonEC2RoleforSSM)
   }

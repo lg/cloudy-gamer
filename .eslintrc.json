@@ -45,7 +45,8 @@
     "sort-keys": "off",
     "capitalized-comments": "off",
     "line-comment-position": "off",
-    "max-statements": ["error", 15]
+    "max-statements": ["error", 15],
+    "object-property-newline": "off"
   },
 
   "root": true
