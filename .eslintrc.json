@@ -5,7 +5,7 @@
   },
 
   "parserOptions": {
-    "ecmaVersion": 6,
+    "ecmaVersion": 2017,
     "sourceType": "script",
     "ecmaFeatures": {
       "impliedStrict": true
@@ -46,7 +46,8 @@
     "capitalized-comments": "off",
     "line-comment-position": "off",
     "max-statements": ["error", 15],
-    "object-property-newline": "off"
+    "object-property-newline": "off",
+    "newline-after-var": "off"
   },
 
   "root": true

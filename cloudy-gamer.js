@@ -40,112 +40,90 @@ class CloudyGamer {
     }
   }
 
-  ensureResourcesExist() {
+  async ensureResourcesExist() {
     console.log("Ensuring resources (security groups) exist...")
-    return this.ec2.describeSecurityGroups({
-      Filters: [{
-        Name: "group-name",
-        Values: ["cloudygamer"]
-      }]
-    }).promise().then(groups => {
-      const vpcSecurityGroup = groups.SecurityGroups.find(group => group.VpcId)
-      const securityGroup = groups.SecurityGroups.find(group => !group.VpcId)
-      const toCreate = []
 
-      if (securityGroup) {
-        this.securityGroupId = securityGroup.GroupId
-      } else {
-        console.log("Creating non-VPC security group...")
-        toCreate.push(this.ec2.createSecurityGroup({
-          GroupName: "cloudygamer",
-          Description: "cloudygamer"
-        }).promise().then(newSecurityGroup => {
-          this.securityGroupId = newSecurityGroup.GroupId
-          return this.ec2.authorizeSecurityGroupIngress({
-            GroupId: newSecurityGroup.GroupId,
-            IpPermissions: [
-              {FromPort: 0, IpProtocol: "tcp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 65535},
-              {FromPort: 0, IpProtocol: "udp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 65535},
-              {FromPort: -1, IpProtocol: "icmp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: -1}
-            ]
-          }).promise()
-        }))
-      }
+    const groups = await this.ec2.describeSecurityGroups({Filters: [{Name: "group-name", Values: ["cloudygamer"]}]}).promise()
+    const vpcSecurityGroup = groups.SecurityGroups.find(group => group.VpcId)
+    const securityGroup = groups.SecurityGroups.find(group => !group.VpcId)
 
-      if (vpcSecurityGroup) {
-        this.vpcSecurityGroupId = vpcSecurityGroup.GroupId
-      } else {
-        console.log("Creating VPC security group...")
-        toCreate.push(this.ec2.createSecurityGroup({
-          GroupName: "cloudygamer",
-          Description: "cloudygamer",
-          VpcId: this.config.awsVPCId
-        }).promise().then(newSecurityGroup => {
-          this.vpcSecurityGroupId = newSecurityGroup.GroupId
-          return this.ec2.authorizeSecurityGroupIngress({
-            GroupId: newSecurityGroup.GroupId,
-            IpPermissions: [
-              {IpProtocol: "-1", IpRanges: [{CidrIp: "0.0.0.0/0"}]}
-            ]
-          }).promise()
-        }))
-      }
+    if (securityGroup) {
+      this.securityGroupId = securityGroup.GroupId
+    } else {
+      console.log("Creating non-VPC security group...")
+      const newSecurityGroup = await this.ec2.createSecurityGroup({GroupName: "cloudygamer", Description: "cloudygamer"}).promise()
+      this.securityGroupId = newSecurityGroup.GroupId
+      await this.ec2.authorizeSecurityGroupIngress({
+        GroupId: newSecurityGroup.GroupId,
+        IpPermissions: [
+          {FromPort: 0, IpProtocol: "tcp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 65535},
+          {FromPort: 0, IpProtocol: "udp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 65535},
+          {FromPort: -1, IpProtocol: "icmp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: -1}
+        ]
+      }).promise()
+    }
 
-      return Promise.all(toCreate)
-    })
+    if (vpcSecurityGroup) {
+      this.vpcSecurityGroupId = vpcSecurityGroup.GroupId
+    } else {
+      console.log("Creating VPC security group...")
+      const newSecurityGroup = await this.ec2.createSecurityGroup({
+        GroupName: "cloudygamer", Description: "cloudygamer", VpcId: this.config.awsVPCId
+      }).promise()
+      this.vpcSecurityGroupId = newSecurityGroup.GroupId
+      await this.ec2.authorizeSecurityGroupIngress({
+        GroupId: newSecurityGroup.GroupId,
+        IpPermissions: [{IpProtocol: "-1", IpRanges: [{CidrIp: "0.0.0.0/0"}]}]
+      }).promise()
+    }
   }
 
-  findLowestPrice() {
-    const promises = []
+  async findLowestPrice() {
     const histories = []
 
     console.log("Looking for lowest price...")
     for (const product of ["Linux/UNIX", "Linux/UNIX (Amazon VPC)"]) {  /* 'Windows', 'Windows (Amazon VPC)' */
-      promises.push(this.ec2.describeSpotPriceHistory({
+      const data = await this.ec2.describeSpotPriceHistory({
         AvailabilityZone: this.config.awsRegionZone,
         ProductDescriptions: [product],
         InstanceTypes: ["g2.2xlarge"],     /* "g2.8xlarge" */
-        MaxResults: 100}).promise().then(data => {
-          histories.push(...data.SpotPriceHistory)
-        })
-      )
+        MaxResults: 100
+      }).promise()
+      histories.push(...data.SpotPriceHistory)
     }
 
-    return Promise.all(promises).then(() => {
-      const zones = new Map()
-      let lowest = histories[0]
+    const zones = new Map()
+    let lowest = histories[0]
 
-      for (const price of histories) {
-        const key = `${price.AvailabilityZone}-${price.InstanceType}-${price.ProductDescription}`
+    for (const price of histories) {
+      const key = `${price.AvailabilityZone}-${price.InstanceType}-${price.ProductDescription}`
 
-        if (!zones.get(key) || price.Timestamp > zones.get(key).Timestamp) {
-          zones.set(key, price)
-          if (parseFloat(price.SpotPrice) <= parseFloat(lowest.SpotPrice)) {
-            lowest = price
-          }
+      if (!zones.get(key) || price.Timestamp > zones.get(key).Timestamp) {
+        zones.set(key, price)
+        if (parseFloat(price.SpotPrice) <= parseFloat(lowest.SpotPrice)) {
+          lowest = price
         }
       }
+    }
 
-      console.log(`Found a ${lowest.InstanceType} on ${lowest.ProductDescription} at $${lowest.SpotPrice} in ${lowest.AvailabilityZone}`)
+    console.log(`Found a ${lowest.InstanceType} on ${lowest.ProductDescription} at $${lowest.SpotPrice} in ${lowest.AvailabilityZone}`)
 
-      if (Number(lowest.SpotPrice) >= TOO_EXPENSIVE) {
-        throw new Error("Too expensive!")
-      }
+    if (Number(lowest.SpotPrice) >= TOO_EXPENSIVE) {
+      throw new Error("Too expensive!")
+    }
 
-      return lowest
-    })
+    return lowest
   }
 
-  startInstance() {
-    return this.ensureResourcesExist().
-    then(() => {
-      return this.findLowestPrice()
-    }).
-    then(lowest => {
+  async startInstance() {
+    try {
+      await this.ensureResourcesExist()
+      const lowest = await this.findLowestPrice()
+
       console.log("Requesting spot instance...")
       const isVPC = lowest.ProductDescription.includes("VPC")
 
-      return this.ec2.requestSpotInstances({
+      const spotRequest = await this.ec2.requestSpotInstances({
         SpotPrice: (Number(lowest.SpotPrice) + EXTRA_DOLLARS).toString(),
         ValidUntil: new Date((new Date()).getTime() + (60000 * FULFILLMENT_TIMEOUT_MINUTES)),
         Type: "one-time",
@@ -167,141 +145,106 @@ class CloudyGamer {
             Name: this.config.awsIAMRoleName
           }
         }
-      }).promise().
-      then(data => {
-        return data.SpotInstanceRequests[0].SpotInstanceRequestId
-      })
+      }).promise()
 
-    }).
-    then(spotId => {
       console.log("Waiting for instance to be fulfilled...")
-
       AWS.apiLoader.services.ec2["2015-10-01"].waiters.SpotInstanceRequestFulfilled.delay = 10
-      return this.ec2.waitFor("spotInstanceRequestFulfilled", {
-        SpotInstanceRequestIds: [spotId]}).promise().
-      then(data => {
-        const instanceId = data.SpotInstanceRequests[0].InstanceId
+      const spotRequests = await this.ec2.waitFor("spotInstanceRequestFulfilled", {
+        SpotInstanceRequestIds: [spotRequest.SpotInstanceRequests[0].SpotInstanceRequestId]}).promise()
 
-        return this.getInstance(instanceId).then(instance => {
-          console.log(`Instance fulfilled (${instance.InstanceId}, ${instance.PublicIpAddress}). Waiting for running state...`)
+      const instanceId = spotRequests.SpotInstanceRequests[0].InstanceId
+      const instance = await this.getInstance(instanceId)
 
-          AWS.apiLoader.services.ec2["2015-10-01"].waiters.InstanceRunning.delay = 2
-          return this.ec2.waitFor("instanceRunning", {
-            InstanceIds: [instanceId]}).promise().
-          then(_ => {          // might be broke?
-            return instanceId
-          })
-        })
-      })
+      console.log(`Instance fulfilled (${instance.InstanceId}, ${instance.PublicIpAddress}). Waiting for running state...`)
+      AWS.apiLoader.services.ec2["2015-10-01"].waiters.InstanceRunning.delay = 2
+      await this.ec2.waitFor("instanceRunning", {InstanceIds: [instanceId]}).promise()
 
-    }).
-    then(instanceId => {
       console.log("Attaching cloudygamer volume...")
 
-      return this.ec2.attachVolume({
+      await this.ec2.attachVolume({
         VolumeId: this.config.awsVolumeId,
         InstanceId: instanceId,
-        Device: "/dev/xvdb"}).promise().
-      then(_ => {
-        return this.ec2.waitFor("volumeInUse", {
-          VolumeIds: [this.config.awsVolumeId],
-          Filters: [{
-            Name: "attachment.status",
-            Values: ["attached"]
-          }]}).promise()
+        Device: "/dev/xvdb"}).promise()
+      await this.ec2.waitFor("volumeInUse", {
+        VolumeIds: [this.config.awsVolumeId],
+        Filters: [{
+          Name: "attachment.status",
+          Values: ["attached"]
+        }]}).promise()
 
-      }).
-      then(_ => {
-        console.log("Waiting for instance to come online...")
-        return this.ssm.waitFor("InstanceOnline", {
-          InstanceInformationFilterList: [{
-            key: "InstanceIds",
-            valueSet: [instanceId]
-          }]}).promise()
-      })
+      console.log("Waiting for instance to come online...")
+      await this.ssm.waitFor("InstanceOnline", {
+        InstanceInformationFilterList: [{
+          key: "InstanceIds",
+          valueSet: [instanceId]
+        }]}).promise()
 
-    }).then(_ => {
       console.log("Ready!")
 
-    }).catch(err => {
+    } catch (err) {
       console.error(err)
-    })
+    }
   }
 
-  stopInstance() {
+  async stopInstance() {
     console.log("Retrieving instance id...")
-    return this.getInstance().then(instance => {
-      const instanceId = instance.InstanceId
+    const instanceId = (await this.getInstance()).InstanceId
 
-      console.log("Terminating instance...")
-      return this.ec2.terminateInstances({
-        InstanceIds: [instanceId]}).promise().
-      then(_ => {
+    console.log("Terminating instance...")
+    await this.ec2.terminateInstances({InstanceIds: [instanceId]}).promise()
 
-        console.log("Waiting for termination...")
-        return this.ec2.waitFor("instanceTerminated", {
-          InstanceIds: [instanceId]}).promise()
-      }).then(_ => {
-        console.log("Done terminating!")
-      })
-    })
+    console.log("Waiting for termination...")
+    await this.ec2.waitFor("instanceTerminated", {InstanceIds: [instanceId]}).promise()
+
+    console.log("Done terminating!")
   }
 
-  restartSteam() {
-    return this.getInstance().then(instance => {
+  async restartSteam() {
+    try {
+      const instance = await this.getInstance()
+
       console.log("Sending restart command...")
-      return this.ssm.sendCommand({
+      await this.ssm.sendCommand({
         DocumentName: "AWS-RunPowerShellScript",
         InstanceIds: [instance.InstanceId],
         Parameters: {
           commands: ["Start-ScheduledTask \"CloudyGamer Restart Steam\""]
-        }}).promise().
-      then(_ => {
-        console.log("Steam restart command successfully sent")
-      })
-    }).catch(err => {
+        }}).promise()
+      console.log("Steam restart command successfully sent")
+    } catch (err) {
       console.error(err)
-    })
+    }
   }
 
-  isVolumeAvailable() {
-    return this.ec2.describeVolumes({
-      VolumeIds: [this.config.awsVolumeId]}).promise().
-    then(data => {
-      return data.Volumes[0].State === "available"
-    })
+  async isVolumeAvailable() {
+    const volumes = await this.ec2.describeVolumes({VolumeIds: [this.config.awsVolumeId]}).promise()
+    return volumes.Volumes[0].State === "available"
   }
 
-  isInstanceOnline(instanceId) {
-    return this.ssm.describeInstanceInformation({
+  async isInstanceOnline(instanceId) {
+    const data = await this.ssm.describeInstanceInformation({
       InstanceInformationFilterList: [{
         key: "InstanceIds",
         valueSet: [instanceId]
-      }]}).promise().
-    then(data => {
-      return data.InstanceInformationList[0].PingStatus === "Online"
-    })
+      }]}).promise()
+    return data.InstanceInformationList[0].PingStatus === "Online"
   }
 
-  getInstance(instanceId = null) {
-    const params = instanceId ? {
+  async getInstance(instanceId = null) {
+    const instanceParams = instanceId ? {
       InstanceIds: [instanceId]
     } : {
-      Filters: [{
-        Name: "image-id",
-        Values: [this.config.awsLinuxAMI]
-      }, {
-        Name: "instance-state-name",
-        Values: ["pending", "running", "stopping"]
-      }]
+      Filters: [
+        {Name: "image-id", Values: [this.config.awsLinuxAMI]},
+        {Name: "instance-state-name", Values: ["pending", "running", "stopping"]}
+      ]
     }
 
-    return this.ec2.describeInstances(params).promise().then(data => {
-      if (data.Reservations.length > 0) {
-        return data.Reservations[0].Instances[0]
-      }
+    const data = await this.ec2.describeInstances(instanceParams).promise()
+    if (data.Reservations.length > 0) {
+      return data.Reservations[0].Instances[0]
+    }
 
-      throw new Error("cloudygamer instance not found")
-    })
+    throw new Error("cloudygamer instance not found")
   }
 }
