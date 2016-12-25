@@ -7,21 +7,26 @@
 // TODO: do i REALLY need the subnet id when creating an instance
 // TODO: upgrade to latest sdk (its broken right now)
 // TODO: label all resources (including EC2 instance)
+// TODO: create IAM role too (once they open up IAM to CORS)
 
 const EXTRA_DOLLARS = 0.10
 const TOO_EXPENSIVE = 1.50
 const FULFILLMENT_TIMEOUT_MINUTES = 5
 const VPC_NAME = "cloudygamervpc"
 const SECURITY_GROUP_NAME = "cloudygamer"
+const BOOT_AMI_NAME = "cloudygamer-loader5"
+const BOOT_AMI_OWNER = "255191696678"
 
 class CloudyGamer {
   constructor(config) {
     this.config = config
 
+    this.awsRegion = this.config.awsRegionZone.slice(0, -1)
+
     AWS.config.update({
       accessKeyId: this.config.awsAccessKey,
       secretAccessKey: this.config.awsSecretAccessKey,
-      region: this.config.awsRegion
+      region: this.awsRegion
     })
 
     this.ec2 = new AWS.EC2()
@@ -30,6 +35,8 @@ class CloudyGamer {
     this.securityGroupId = null
     this.vpcSecurityGroupId = null
     this.vpcSubnetId = null
+    this.bootAMI = null
+    this.volumeId = null
 
     this.ssm.api.waiters = {
       InstanceOnline: {
@@ -117,8 +124,19 @@ class CloudyGamer {
   }
 
   async discoverAndCreateResources() {
-    // TODO: check that ami exists and volume id exists
-    // TODO: create IAM role too
+    console.log("Looking for boot AMI...")
+    const images = await this.ec2.describeImages({Filters: [{Name: "name", Values: [BOOT_AMI_NAME]}, {Name: "owner-id", Values: [BOOT_AMI_OWNER]}]}).promise()
+    if (images.Images.length === 0) {
+      throw new Error(`Unable to find AMI ${BOOT_AMI_NAME} by owner ${BOOT_AMI_OWNER} in region ${this.awsRegion}. It's likely this region doesn't have have g2.2xlarge machines. Pick another region.`)
+    }
+    this.bootAMI = images.Images[0].ImageId
+
+    console.log("Verifying EBS volume exists...")
+    const volumes = await this.ec2.describeVolumes({Filters: [{Name: "tag:Name", Values: [this.config.awsVolumeName]}]}).promise()
+    if (volumes.Volumes.length === 0) {
+      throw new Error(`Unable to find an EBS volume with the name ${this.config.awsVolumeName}. You need to prep one (for example as per articles on https://www.reddit.com/r/cloudygamer/) and have it be in this zone (${this.config.awsRegionZone}).`)
+    }
+    this.volumeId = volumes.Volumes[0].VolumeId
 
     console.log("Checking for VPC resources...")
     const vpcs = await this.ec2.describeVpcs({Filters: [{Name: "tag:Name", Values: [VPC_NAME]}]}).promise()
@@ -195,7 +213,7 @@ class CloudyGamer {
         ValidUntil: new Date((new Date()).getTime() + (60000 * FULFILLMENT_TIMEOUT_MINUTES)),
         Type: "one-time",
         LaunchSpecification: {
-          ImageId: this.config.awsLinuxAMI,
+          ImageId: this.bootAMI,
           SecurityGroupIds: isVPC ? null : [this.securityGroupId],
           InstanceType: lowest.InstanceType,
           Placement: {
@@ -233,11 +251,11 @@ class CloudyGamer {
       console.log("Attaching cloudygamer volume...")
 
       await this.ec2.attachVolume({
-        VolumeId: this.config.awsVolumeId,
+        VolumeId: this.volumeId,
         InstanceId: instanceId,
         Device: "/dev/xvdb"}).promise()
       await this.ec2.waitFor("volumeInUse", {
-        VolumeIds: [this.config.awsVolumeId],
+        VolumeIds: [this.volumeId],
         Filters: [{
           Name: "attachment.status",
           Values: ["attached"]
@@ -288,7 +306,7 @@ class CloudyGamer {
   }
 
   async isVolumeAvailable() {
-    const volumes = await this.ec2.describeVolumes({VolumeIds: [this.config.awsVolumeId]}).promise()
+    const volumes = await this.ec2.describeVolumes({Filters: [{Name: "tag:Name", Values: [this.config.awsVolumeName]}]}).promise()
     return volumes.Volumes[0].State === "available"
   }
 
@@ -306,7 +324,7 @@ class CloudyGamer {
       InstanceIds: [instanceId]
     } : {
       Filters: [
-        {Name: "image-id", Values: [this.config.awsLinuxAMI]},
+        {Name: "tag:Name", Values: ["cloudygamer"]},
         {Name: "instance-state-name", Values: ["pending", "running", "stopping"]}
       ]
     }

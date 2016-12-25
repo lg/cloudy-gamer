@@ -4,8 +4,7 @@
 cloudygamer by larry gadea - <a href="https://github.com/lg/cloudy-gamer/">github source and help</a><br/><br/>
 instance status: <span id='instance-status'>(retrieving)</span><br/>
 volume status: <span id='volume-status'>(retrieving)</span><br/>
-<button onclick="javascript:updateStatuses()">update status</button>
-<button onclick="javascript:cg.discoverAndCreateResources()">discover and create resources</button><br/>
+<button onclick="javascript:updateStatuses()">update status</button><br/>
 <br/>
 <button onclick="javascript:startInstance()">start instance</button>
 <button onclick="javascript:stopInstance()">stop instance</button><br/>
@@ -15,17 +14,21 @@ volume status: <span id='volume-status'>(retrieving)</span><br/>
 <br/>
 
 <div id='config-container'></div>
-<button onclick="javascript:saveConfigFromDOM()">save config</button><br/>
+<button onclick="javascript:saveConfigFromDOM()">save config</button>
+<button onclick="javascript:cg.discoverAndCreateResources()">test/prep</button><br/>
+<p style='font-size:50%'>
+Note 1: Use <a href='user-policy.txt' target='_blank'>this</a> policy for your AWS user<br/>
+Note 2: Your awsIAMRoleName needs at least the AmazonEC2RoleforSSM policy attached to it</a><br/>
+</p>
+
 
 <script>
   self.configKeysAndDefaults = {
-    awsAccessKey: "",
+    awsAccessKey: "",               // See user-policy.txt for inline policy
     awsSecretAccessKey: "",
-    awsRegion: "us-west-1",
+    awsIAMRoleName: "",             // Used by EC2 instance for SSM (needs AmazonEC2RoleforSSM)
     awsRegionZone: "us-west-1c",
-    awsLinuxAMI: "ami-bfce84df",    // AMI of ubuntu image with rearranged boot menu
-    awsVolumeId: "",
-    awsIAMRoleName: ""              // Used by EC2 instance for SSM (needs AmazonEC2RoleforSSM)
+    awsVolumeName: "cloudygamer"
   }
   self.config = null
   self.cg = null
