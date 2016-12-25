@@ -11,6 +11,8 @@
 const EXTRA_DOLLARS = 0.10
 const TOO_EXPENSIVE = 1.50
 const FULFILLMENT_TIMEOUT_MINUTES = 5
+const VPC_NAME = "cloudygamervpc"
+const SECURITY_GROUP_NAME = "cloudygamer"
 
 class CloudyGamer {
   constructor(config) {
@@ -47,7 +49,6 @@ class CloudyGamer {
 
   async createVPCResources() {
     // TODO: consider classiclink?
-    // TODO: make sure everything is labelled (the acls arent i think)
     // TODO: handle the 'unnecessary' lines below
 
     console.log("  Creating VPC...")
@@ -77,16 +78,19 @@ class CloudyGamer {
       GatewayId: gateway.InternetGateway.InternetGatewayId
     }).promise()
 
+    console.log("  Finding the ACLs...")
+    const acls = await this.ec2.describeNetworkAcls({Filters: [{Name: "vpc-id", Values: [vpc.Vpc.VpcId]}]}).promise()
+
     console.log("  Creating VPC Security Group...")
-    const securityGroup = await this.ec2.createSecurityGroup({GroupName: "cloudygamer", Description: "cloudygamer", VpcId: vpc.Vpc.VpcId}).promise()
+    const securityGroup = await this.ec2.createSecurityGroup({GroupName: SECURITY_GROUP_NAME, Description: "cloudygamer", VpcId: vpc.Vpc.VpcId}).promise()
 
     console.log("  Adding firewall rules to Security Group...")
     await this.ec2.authorizeSecurityGroupIngress({GroupId: securityGroup.GroupId, IpPermissions: [{IpProtocol: "-1", IpRanges: [{CidrIp: "0.0.0.0/0"}]}]}).promise()
 
     console.log("  Tagging all new resources...")
     await this.ec2.createTags({
-      Resources: [vpc.Vpc.VpcId, subnet.Subnet.SubnetId, routeTables.RouteTables[0].RouteTableId, gateway.InternetGateway.InternetGatewayId, securityGroup.GroupId],
-      Tags: [{Key: "Name", Value: "cloudygamervpc"}]}).promise()
+      Resources: [vpc.Vpc.VpcId, subnet.Subnet.SubnetId, routeTables.RouteTables[0].RouteTableId, gateway.InternetGateway.InternetGatewayId, securityGroup.GroupId, acls.NetworkAcls[0].NetworkAclId],
+      Tags: [{Key: "Name", Value: VPC_NAME}]}).promise()
 
     console.log("  Completed creating VPC.")
 
@@ -95,7 +99,7 @@ class CloudyGamer {
 
   async createSecurityGroupResource() {
     console.log("  Creating non-VPC Security Group...")
-    const securityGroup = await this.ec2.createSecurityGroup({GroupName: "cloudygamer", Description: "cloudygamer"}).promise()
+    const securityGroup = await this.ec2.createSecurityGroup({GroupName: SECURITY_GROUP_NAME, Description: "cloudygamer"}).promise()
 
     console.log("  Adding firewall rules to Security Group...")
     await this.ec2.authorizeSecurityGroupIngress({
@@ -117,7 +121,7 @@ class CloudyGamer {
     // TODO: create IAM role too
 
     console.log("Checking for VPC resources...")
-    const vpcs = await this.ec2.describeVpcs({Filters: [{Name: "tag:Name", Values: ["cloudygamervpc"]}]}).promise()
+    const vpcs = await this.ec2.describeVpcs({Filters: [{Name: "tag:Name", Values: [VPC_NAME]}]}).promise()
     const vpcId = vpcs.Vpcs.length > 0 ? vpcs.Vpcs[0].VpcId : await this.createVPCResources()
 
     console.log(`Retrieving VPC Subnet ID for ${this.config.awsRegionZone}...`)
@@ -130,7 +134,7 @@ class CloudyGamer {
     this.vpcSubnetId = subnets.Subnets[0].SubnetId
 
     console.log("Retrieving VPC and non-VPC Security Groups...")
-    const groups = await this.ec2.describeSecurityGroups({Filters: [{Name: "group-name", Values: ["cloudygamer"]}]}).promise()
+    const groups = await this.ec2.describeSecurityGroups({Filters: [{Name: "group-name", Values: [SECURITY_GROUP_NAME]}]}).promise()
     const vpcSecurityGroup = groups.SecurityGroups.find(group => group.VpcId && group.VpcId === vpcId)
     const securityGroup = groups.SecurityGroups.find(group => !group.VpcId)
 
@@ -209,16 +213,20 @@ class CloudyGamer {
           }
         }
       }).promise()
+      const spotRequestId = spotRequest.SpotInstanceRequests[0].SpotInstanceRequestId
 
       console.log("Waiting for instance to be fulfilled...")
       AWS.apiLoader.services.ec2["2015-10-01"].waiters.SpotInstanceRequestFulfilled.delay = 10
       const spotRequests = await this.ec2.waitFor("spotInstanceRequestFulfilled", {
-        SpotInstanceRequestIds: [spotRequest.SpotInstanceRequests[0].SpotInstanceRequestId]}).promise()
+        SpotInstanceRequestIds: [spotRequestId]}).promise()
 
       const instanceId = spotRequests.SpotInstanceRequests[0].InstanceId
       const instance = await this.getInstance(instanceId)
 
-      console.log(`Instance fulfilled (${instance.InstanceId}, ${instance.PublicIpAddress}). Waiting for running state...`)
+      console.log(`Instance fulfilled (${instance.InstanceId}, ${instance.PublicIpAddress}). Tagging it...`)
+      await this.ec2.createTags({Resources: [instanceId, spotRequestId], Tags: [{Key: "Name", Value: "cloudygamer"}]}).promise()
+
+      console.log("Waiting for running state...")
       AWS.apiLoader.services.ec2["2015-10-01"].waiters.InstanceRunning.delay = 2
       await this.ec2.waitFor("instanceRunning", {InstanceIds: [instanceId]}).promise()
 
