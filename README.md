@@ -28,9 +28,6 @@ This service assumes you've done the instructions on my [Azure gaming article](h
 - **awsRegionZone**: The zone in the region that has your EBS volume (ex. `us-west-1c`)
 - **awsLinuxAMI**: The bootloader GRUB that allows you to start Windows after attaching it. I made this image for now, it's essentially a stock Ubuntu AMI except with another couple lines in /boot/grub/menu.lst. I've made my image public, though you might copy it to your region. On us-west-1, it's `ami-bfce84df`.
 - **awsVolumeId**: Your Windows EBS volume with Windows, your games, settings, etc.
-- **awsSecurityGroupId**: The non-VPC AWS Security Group to attach to your instance. Mine basically is a policy that allows 'All TCP', 'All UDP' and 'All ICMP'. Probably unnecessary, but once I test less firewall, I'll update these instructions.
-- **awsSecurityGroupVPCId**: The VPC AWS Security Group to attach to your instance. If you don't have one already, use the Wizard to create one. Create a subnet for all zones in your region.
-- **awsSubnetVPCId**: The Subnet Id for your VPC Security Group in the zone you're targetting.
 - **awsIAMRoleName**: The Id of the IAM Role that your EC2 instance will inherit. This is necessary for using AWS SSM to detect when the machine is online and to issue commands to it. Attach the policy `AmazonEC2RoleforSSM` to it.
 
 # Playing
