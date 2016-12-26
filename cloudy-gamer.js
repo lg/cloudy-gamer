@@ -5,9 +5,8 @@
 //       security policy too
 // TODO: figure out whats really needed for the security group
 // TODO: do i REALLY need the subnet id when creating an instance
-// TODO: upgrade to latest sdk (its broken right now)
-// TODO: label all resources (including EC2 instance)
 // TODO: create IAM role too (once they open up IAM to CORS)
+// TODO: load babel for non-compliant browsers
 
 const EXTRA_DOLLARS = 0.10
 const TOO_EXPENSIVE = 1.50
@@ -234,7 +233,7 @@ class CloudyGamer {
       const spotRequestId = spotRequest.SpotInstanceRequests[0].SpotInstanceRequestId
 
       console.log("Waiting for instance to be fulfilled...")
-      AWS.apiLoader.services.ec2["2015-10-01"].waiters.SpotInstanceRequestFulfilled.delay = 10
+      this.ec2.api.waiters.spotInstanceRequestFulfilled.delay = 10
       const spotRequests = await this.ec2.waitFor("spotInstanceRequestFulfilled", {
         SpotInstanceRequestIds: [spotRequestId]}).promise()
 
@@ -245,7 +244,7 @@ class CloudyGamer {
       await this.ec2.createTags({Resources: [instanceId, spotRequestId], Tags: [{Key: "Name", Value: "cloudygamer"}]}).promise()
 
       console.log("Waiting for running state...")
-      AWS.apiLoader.services.ec2["2015-10-01"].waiters.InstanceRunning.delay = 2
+      this.ec2.api.waiters.instanceRunning.delay = 2
       await this.ec2.waitFor("instanceRunning", {InstanceIds: [instanceId]}).promise()
 
       console.log("Attaching cloudygamer volume...")
