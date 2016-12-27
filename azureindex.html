@@ -1,0 +1,34 @@
+<script src="https://secure.aadcdn.microsoftonline-p.com/lib/1.0.13/js/adal.min.js"></script>
+
+<a href="#" onclick="login();">login</a>
+<a href="#" onclick="test()">test</a>
+
+<script type="text/javascript">
+    var authContext = new AuthenticationContext({
+        tenant: "875677b9-62d0-4c8b-8702-0c73da92e1ad",     // aka directory id
+        clientId: "807443a9-5e5c-4055-a70f-41ee46a053f8",
+        endpoints: {'azuremanagement': 'https://management.azure.com/'}
+    });
+
+    if (authContext.isCallback(window.location.hash))
+        authContext.handleWindowCallback();
+
+    function login() {
+        authContext.login();
+    }
+
+    function test() {
+        authContext.acquireToken("https://management.azure.com/", function(error, token) {
+            cont(token)
+        })
+    }
+
+    async function cont(token) {
+        var myHeaders = new Headers();
+        myHeaders.append("Authorization", `Bearer ${token}`);
+
+        const x = await fetch("https://management.azure.com/subscriptions?api-version=2014-04-01", {method: 'GET', headers: myHeaders})
+        const result = await x.json()
+        debugger
+    }
+</script>

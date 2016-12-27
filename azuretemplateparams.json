@@ -1,0 +1,51 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "location": {
+            "value": "southcentralus"
+        },
+        "virtualMachineName": {
+            "value": "cloudygamertest"
+        },
+        "virtualMachineSize": {
+            "value": "Standard_NV6"
+        },
+        "adminUsername": {
+            "value": "lgadmin"
+        },
+        "storageAccountName": {
+            "value": "cloudygamertestdisks347"
+        },
+        "virtualNetworkName": {
+            "value": "cloudygamertest-vnet"
+        },
+        "networkInterfaceName": {
+            "value": "cloudygamertest787"
+        },
+        "networkSecurityGroupName": {
+            "value": "cloudygamertest-nsg"
+        },
+        "adminPassword": {
+            "value": null
+        },
+        "storageAccountType": {
+            "value": "Standard_LRS"
+        },
+        "addressPrefix": {
+            "value": "10.0.0.0/24"
+        },
+        "subnetName": {
+            "value": "default"
+        },
+        "subnetPrefix": {
+            "value": "10.0.0.0/24"
+        },
+        "publicIpAddressName": {
+            "value": "cloudygamertest-ip"
+        },
+        "publicIpAddressType": {
+            "value": "Dynamic"
+        }
+    }
+}
