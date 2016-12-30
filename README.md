@@ -10,6 +10,7 @@
 - Keeps a persistent EBS hard drive available for 1-2 minute boot
 - Designed around facilitating Steam In-Home Streaming to work over the internet (VPN still necessary)
 - CloudyGamer is free and opensource!
+- BETA: Script to auto-provision your EC2 images
 
 # First time configuration
 
@@ -21,7 +22,7 @@ We use a Linux AMI since it allows volumes to be attached at boot time (we hot a
 
 Instances can be either VPC or non-VPC. CloudyGamer automatically choses which one based on cost (Spot instance prices vary depending on this). This VPC is also created for you.
 
-This service assumes you've done the instructions on the [Azure gaming article](http://lg.io/2016/10/12/cloudy-gamer-playing-overwatch-on-azures-new-monster-gpu-instances.html) except on EC2, OR you've used the slightly older [EC2 gaming article](http://lg.io/2015/07/05/revised-and-much-faster-run-your-own-highend-cloud-gaming-service-on-ec2.html) instructions. That's the EBS volume we'll be using.
+This service assumes you've done the instructions on the [Azure gaming article](http://lg.io/2016/10/12/cloudy-gamer-playing-overwatch-on-azures-new-monster-gpu-instances.html) except on EC2, OR you've used the slightly older [EC2 gaming article](http://lg.io/2015/07/05/revised-and-much-faster-run-your-own-highend-cloud-gaming-service-on-ec2.html) instructions. That's the EBS volume we'll be using. Note: See the BETA section below for a script that can do this for you automatically.
 
 - **awsAccessKey**: Create a new AWS user on your account with the inline policy [here](assets/user-policy.txt) (it'll change over time). The user should be password-less.
 - **awsSecretAccessKey**: The secret access key for the user you created above. Remember that CloudyGamer logic is 100% local on your web browser. Even though you're at cloudygamer.com (or locally), this information is only stored on your browser and authenticated against AWS directly on your own account. In fact, cloudygamer.com is a simple Github Pages page.
@@ -51,11 +52,13 @@ A beta feature right now is to not even manually set up the EC2 image (Azure has
 1. Save the file onto the Administrator's Desktop as `cloudygamer.psm1`
 1. Open up a new Administrator PowerShell and run the following, replacing `<PASSWORD>` with a new password to set for the new user account
 
+    ```
     New-Item -ItemType directory -Path "$Env:ProgramFiles\WindowsPowerShell\Modules\CloudyGamer" -Force
     Copy-Item "$Home\Desktop\cloudygamer.psm1" -Destination "$Env:ProgramFiles\WindowsPowerShell\Modules\CloudyGamer\" -Force
 
     Import-Module CloudyGamer
     New-CloudyGamerInstall -Password "<PASSWORD>"
+    ```
 
 This will create a new `cloudygamer` user on the machine, assign it administrator privileges, set up a startup script and then reboot. For the next 15-30 minutes, the machine will keep installing stuff and rebooting (read the [cloudygamer.psm1](cloudygamer.psm1) script for details). Going forward, always log into the machine as the `cloudygamer` user. To manually see the status look at the contents of the `c:\cloudygamer\installer.txt` file. You'll know the provisioning is complete when you see the status `All done!` and `Get-Job` returns `Completed`.
 
@@ -66,7 +69,7 @@ If there is a failure provisioning the machine, use the `Get-Job` PowerShell com
 Ideally in the future we'll have support for:
 
 - Multiple cloud providers (AWS, Azure, GCP, etc)
-- No magic AMIs, auto-configuring machines from native cloud images
+- No magic AMIs, auto-configuring machines from native cloud images **(working on it, see BETA above)**
 
 # Help?
 
