@@ -41,6 +41,26 @@ This service assumes you've done the instructions on the [Azure gaming article](
 1. Start the server locally using `python -m SimpleHTTPServer 8000`
 1. Go to http://127.0.0.1:8000
 
+# BETA: Automated CloudyGamer provisioning of machine
+
+A beta feature right now is to not even manually set up the EC2 image (Azure hasn't been tested yet). Starting from the base Windows Server 2016 image from Amazon, running the `cloudygamer.psm1` script [here](cloudygamer.psm1) will set everything up for you. Use it this way:
+
+1. Create a new Windows Server 2016 machine on EC2
+1. Log in as Administrator using Microsoft Remotge Desktop
+1. Open up the Windows PowerShell ISE, go to the File menu, select New, and paste the contents of `cloudygamer.psm1` into there
+1. Save the file onto the Administrator's Desktop as `cloudygamer.psm1`
+1. Open up a new Administrator PowerShell and run the following, replacing `<PASSWORD>` with a new password to set for the new user account
+
+    New-Item -ItemType directory -Path "$Env:ProgramFiles\WindowsPowerShell\Modules\CloudyGamer" -Force
+    Copy-Item "$Home\Desktop\cloudygamer.psm1" -Destination "$Env:ProgramFiles\WindowsPowerShell\Modules\CloudyGamer\" -Force
+
+    Import-Module CloudyGamer
+    New-CloudyGamerInstall -Password "<PASSWORD>"
+
+This will create a new `cloudygamer` user on the machine, assign it administrator privileges, set up a startup script and then reboot. For the next 15-30 minutes, the machine will keep installing stuff and rebooting (read the [cloudygamer.psm1](cloudygamer.psm1) script for details). Going forward, always log into the machine as the `cloudygamer` user. To manually see the status look at the contents of the `c:\cloudygamer\installer.txt` file. You'll know the provisioning is complete when you see the status `All done!` and `Get-Job` returns `Completed`.
+
+If there is a failure provisioning the machine, use the `Get-Job` PowerShell command to see the job IDs, and then use the `Receive-Job` command to see the output of all commands.
+
 # Future
 
 Ideally in the future we'll have support for:
