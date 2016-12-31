@@ -162,11 +162,11 @@ class CloudyGamer {
     this.securityGroupId = securityGroup ? securityGroup.GroupId : await this.createSecurityGroupResource()
   }
 
-  async findLowestPrice() {
+  async findLowestPrice(instanceTypes) {
     const histories = []
 
     console.log("Looking for lowest price...")
-    for (const product of ["Linux/UNIX", "Linux/UNIX (Amazon VPC)"]) {  /* 'Windows', 'Windows (Amazon VPC)' */
+    for (const product of instanceTypes) {
       const data = await this.ec2.describeSpotPriceHistory({
         AvailabilityZone: this.config.awsRegionZone,
         ProductDescriptions: [product],
@@ -199,58 +199,56 @@ class CloudyGamer {
     return lowest
   }
 
-  async startInstance() {
-    try {
-      await this.discoverAndCreateResources()
-      const lowest = await this.findLowestPrice()
+  async startSpotInstance(instanceTypes, amiId, attachVolumeId) {
+    await this.discoverAndCreateResources()
+    const lowest = await this.findLowestPrice(instanceTypes)
 
-      console.log("Requesting spot instance...")
-      const isVPC = lowest.ProductDescription.includes("VPC")
-
-      const spotRequest = await this.ec2.requestSpotInstances({
-        SpotPrice: (Number(lowest.SpotPrice) + EXTRA_DOLLARS).toString(),
-        ValidUntil: new Date((new Date()).getTime() + (60000 * FULFILLMENT_TIMEOUT_MINUTES)),
-        Type: "one-time",
-        LaunchSpecification: {
-          ImageId: this.bootAMI,
-          SecurityGroupIds: isVPC ? null : [this.securityGroupId],
-          InstanceType: lowest.InstanceType,
-          Placement: {
-            AvailabilityZone: lowest.AvailabilityZone
-          },
-          EbsOptimized: lowest.InstanceType === "g2.2xlarge" ? true : null,
-          NetworkInterfaces: isVPC ? [{
-            DeviceIndex: 0,
-            SubnetId: this.vpcSubnetId,
-            AssociatePublicIpAddress: true,
-            Groups: [this.vpcSecurityGroupId]
-          }] : null,
-          IamInstanceProfile: {
-            Name: this.config.awsIAMRoleName
-          }
+    console.log("Requesting spot instance...")
+    const isVPC = lowest.ProductDescription.includes("VPC")
+    const spotRequest = await this.ec2.requestSpotInstances({
+      SpotPrice: (Number(lowest.SpotPrice) + EXTRA_DOLLARS).toString(),
+      ValidUntil: new Date((new Date()).getTime() + (60000 * FULFILLMENT_TIMEOUT_MINUTES)),
+      Type: "one-time",
+      LaunchSpecification: {
+        ImageId: amiId,
+        SecurityGroupIds: isVPC ? null : [this.securityGroupId],
+        InstanceType: lowest.InstanceType,
+        Placement: {
+          AvailabilityZone: lowest.AvailabilityZone
+        },
+        EbsOptimized: lowest.InstanceType === "g2.2xlarge" ? true : null,
+        NetworkInterfaces: isVPC ? [{
+          DeviceIndex: 0,
+          SubnetId: this.vpcSubnetId,
+          AssociatePublicIpAddress: true,
+          Groups: [this.vpcSecurityGroupId]
+        }] : null,
+        IamInstanceProfile: {
+          Name: this.config.awsIAMRoleName
         }
-      }).promise()
-      const spotRequestId = spotRequest.SpotInstanceRequests[0].SpotInstanceRequestId
+      }
+    }).promise()
+    const spotRequestId = spotRequest.SpotInstanceRequests[0].SpotInstanceRequestId
 
-      console.log("Waiting for instance to be fulfilled...")
-      this.ec2.api.waiters.spotInstanceRequestFulfilled.delay = 10
-      const spotRequests = await this.ec2.waitFor("spotInstanceRequestFulfilled", {
-        SpotInstanceRequestIds: [spotRequestId]}).promise()
+    console.log("Waiting for instance to be fulfilled...")
+    this.ec2.api.waiters.spotInstanceRequestFulfilled.delay = 10
+    const spotRequests = await this.ec2.waitFor("spotInstanceRequestFulfilled", {
+      SpotInstanceRequestIds: [spotRequestId]}).promise()
 
-      const instanceId = spotRequests.SpotInstanceRequests[0].InstanceId
-      const instance = await this.getInstance(instanceId)
+    const instanceId = spotRequests.SpotInstanceRequests[0].InstanceId
+    const instance = await this.getInstance(instanceId)
 
-      console.log(`Instance fulfilled (${instance.InstanceId}, ${instance.PublicIpAddress}). Tagging it...`)
-      await this.ec2.createTags({Resources: [instanceId, spotRequestId], Tags: [{Key: "Name", Value: "cloudygamer"}]}).promise()
+    console.log(`Instance fulfilled (${instance.InstanceId}, ${instance.PublicIpAddress}). Tagging it...`)
+    await this.ec2.createTags({Resources: [instanceId, spotRequestId], Tags: [{Key: "Name", Value: "cloudygamer"}]}).promise()
 
+    if (attachVolumeId) {
       console.log("Waiting for running state...")
       this.ec2.api.waiters.instanceRunning.delay = 2
       await this.ec2.waitFor("instanceRunning", {InstanceIds: [instanceId]}).promise()
 
       console.log("Attaching cloudygamer volume...")
-
       await this.ec2.attachVolume({
-        VolumeId: this.volumeId,
+        VolumeId: attachVolumeId,
         InstanceId: instanceId,
         Device: "/dev/xvdb"}).promise()
       await this.ec2.waitFor("volumeInUse", {
@@ -259,15 +257,53 @@ class CloudyGamer {
           Name: "attachment.status",
           Values: ["attached"]
         }]}).promise()
+    }
 
-      console.log("Waiting for instance to come online...")
-      await this.ssm.waitFor("InstanceOnline", {
-        InstanceInformationFilterList: [{
-          key: "InstanceIds",
-          valueSet: [instanceId]
-        }]}).promise()
+    console.log("Waiting for instance to come online...")
+    await this.ssm.waitFor("InstanceOnline", {
+      InstanceInformationFilterList: [{
+        key: "InstanceIds",
+        valueSet: [instanceId]
+      }]}).promise()
 
+    return instanceId
+  }
+
+  async startInstance() {
+    try {
+      await this.startSpotInstance(["Linux/UNIX", "Linux/UNIX (Amazon VPC)"], this.bootAMI, this.volumeId)
       console.log("Ready!")
+
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  async provisionNewImage(userPassword) {
+    try {
+      // TODO: need to do the describe AFTER checking for resources
+      // TODO: volume check shouldn't be part of it if we're provisioning
+      // TODO: check if password is empty
+
+      console.log("Finding latest Windows Server 2016 AMI...")
+      const images = await this.ec2.describeImages({Filters: [
+        {Name: "description", Values: ["Microsoft Windows Server 2016 with Desktop Experience Locale English AMI provided by Amazon"]}
+      ]}).promise()
+      const newestAMI = images.Images.sort((a, b) => { return new Date(a.CreationDate) < new Date(b.CreationDate) })[0]
+
+      const instanceId = await this.startSpotInstance(["Windows", "Windows (Amazon VPC)"], newestAMI.ImageId, null)
+
+      console.log("Getting script...")
+      const scriptB64 = btoa(await (await fetch("cloudygamer.psm1")).text())
+
+      console.log("Starting CloudyGamer Installer...")
+      await this.ssm.sendCommand({
+        DocumentName: "AWS-RunPowerShellScript",
+        InstanceIds: [instanceId],
+        Parameters: {
+          commands: [`New-Item -ItemType directory -Path "$Env:ProgramFiles\\WindowsPowerShell\\Modules\\CloudyGamer" -Force; [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("${scriptB64}")) | Out-File "$Env:ProgramFiles\\WindowsPowerShell\\Modules\\CloudyGamer\\cloudygamer.psm1"; Import-Module CloudyGamer; New-CloudyGamerInstall -Password "${userPassword}"`]
+        }}).promise()
+      console.log("Started.")
 
     } catch (err) {
       console.error(err)

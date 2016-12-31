@@ -278,7 +278,7 @@ workflow Install-CloudyGamer {
     # install windows update automation and run it
     Install-Module PSWindowsUpdate -Force
     Add-WUServiceManager -ServiceID 7971f918-a847-4430-9279-4a52d1efe18d -Confirm:$false
-    Get-WUInstall –MicrosoftUpdate –AcceptAll -IgnoreReboot
+    Get-WUInstall -MicrosoftUpdate -AcceptAll -IgnoreReboot
   }
 
   Restart-Computer -Force -Wait

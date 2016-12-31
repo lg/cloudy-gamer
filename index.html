@@ -19,8 +19,9 @@ volume status: <span id='volume-status'>(retrieving)</span><br/>
 <p style='font-size:50%'>
 Note 1: Use <a href='user-policy.txt' target='_blank'>this</a> policy for your AWS user<br/>
 Note 2: Your awsIAMRoleName needs at least the AmazonEC2RoleforSSM policy attached to it</a><br/>
-</p>
-
+</p><br/><br/>
+<button onclick="javascript:provisionNewImage()">provision new image</button><br/>
+<label for="provision">with password: </label><input type="text" id="provision" value=""/><br/>
 
 <script>
   self.configKeysAndDefaults = {
@@ -108,6 +109,10 @@ Note 2: Your awsIAMRoleName needs at least the AmazonEC2RoleforSSM policy attach
     self.cg.isVolumeAvailable().then(result => {
       volumeStatusEl.textContent = result ? "available" : "in use"
     })
+  }
+
+  self.provisionNewImage = () => {
+    self.cg.provisionNewImage(document.querySelector("#provision").value)
   }
 
   self.start()
