@@ -1,13 +1,3 @@
-// TODO: remove the requirement for us-west-2a
-// TODO: validate that the volume is available
-// TODO: respond to 1-minute-warning
-// TODO: use a shared policy from my account (so everyone doesnt need it), maybe
-//       security policy too
-// TODO: figure out whats really needed for the security group
-// TODO: do i REALLY need the subnet id when creating an instance
-// TODO: create IAM role too (once they open up IAM to CORS)
-// TODO: load babel for non-compliant browsers
-
 const EXTRA_DOLLARS = 0.10
 const TOO_EXPENSIVE = 1.50
 const FULFILLMENT_TIMEOUT_MINUTES = 5
@@ -301,9 +291,6 @@ class CloudyGamer {
       throw new Error("You must specify a password for the cloudygamer user")
 
     try {
-      // TODO: need to do the describe AFTER checking for resources
-      // TODO: volume check shouldn't be part of it if we're provisioning
-
       console.log("Finding latest Windows Server 2016 AMI...")
       const images = await this.ec2.describeImages({Filters: [
         {Name: "description", Values: ["Microsoft Windows Server 2016 with Desktop Experience Locale English AMI provided by Amazon"]}

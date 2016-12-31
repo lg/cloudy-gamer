@@ -1,5 +1,3 @@
-# TODO: Azure drivers
-
 workflow Install-CloudyGamer {
   Param (
     [parameter(Mandatory=$true)] [String] $TimeZone,
