@@ -30,7 +30,8 @@
                 "ec2:DescribeImages",
                 "iam:PassRole",
                 "ssm:DescribeInstanceInformation",
-                "ssm:SendCommand"
+                "ssm:SendCommand",
+                "ssm:ListCommandInvocation"
             ],
             "Resource": [
                 "*"

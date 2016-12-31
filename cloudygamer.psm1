@@ -159,8 +159,8 @@ workflow Install-CloudyGamer {
     # hide the touchbar button on the systray
     Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\PenWorkspace" -Name PenWorkspaceButtonDesiredVisibility -Value 0
 
-    # set timezone
-    Set-TimeZone $Using:TimeZone
+    # set timezone (disabled for now)
+    # Set-TimeZone $Using:TimeZone
   }
 
   InlineScript {

@@ -49,6 +49,23 @@ class CloudyGamer {
         delay: 5,
         maxAttempts: 80,
         operation: "describeInstanceInformation"
+      },
+      CommandInvoked: {
+        name: "CommandInvoked",
+        acceptors: [{
+          argument: "CommandInvocations[].Status",
+          expected: "Success",
+          matcher: "pathAll",
+          state: "success"
+        }, {
+          argument: "CommandInvocations[].Status",
+          expected: "Failed",
+          matcher: "pathAll",
+          state: "failure"
+        }],
+        delay: 5,
+        maxAttempts: 80,
+        operation: "listCommandInvocations"
       }
     }
   }
@@ -280,10 +297,12 @@ class CloudyGamer {
   }
 
   async provisionNewImage(userPassword) {
+    if (!userPassword)
+      throw new Error("You must specify a password for the cloudygamer user")
+
     try {
       // TODO: need to do the describe AFTER checking for resources
       // TODO: volume check shouldn't be part of it if we're provisioning
-      // TODO: check if password is empty
 
       console.log("Finding latest Windows Server 2016 AMI...")
       const images = await this.ec2.describeImages({Filters: [
@@ -308,6 +327,31 @@ class CloudyGamer {
     } catch (err) {
       console.error(err)
     }
+  }
+
+  async checkProvisionStatus() {
+    console.log("Retrieving instance id...")
+    const instanceId = (await this.getInstance()).InstanceId
+
+    console.log("Sending request for status...")
+    const command = await this.ssm.sendCommand({
+      DocumentName: "AWS-RunPowerShellScript",
+      InstanceIds: [instanceId],
+      Parameters: {
+        commands: [`Get-Content "c:\\cloudygamer\\installer.txt"`]
+      }}).promise()
+    const commandId = command.Command.CommandId
+
+    console.log("Waiting for result...")
+    const result = await this.ssm.waitFor("CommandInvoked", {
+      CommandId: commandId,
+      InstanceId: instanceId,
+      Details: true
+    }).promise()
+    const outputLines = result.CommandInvocations[0].CommandPlugins[0].Output.split("\n")
+    const lastLine = outputLines[outputLines.length - 2]
+
+    console.log(`Latest status is: ${lastLine}`)
   }
 
   async stopInstance() {

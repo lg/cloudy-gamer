@@ -20,7 +20,8 @@ volume status: <span id='volume-status'>(retrieving)</span><br/>
 Note 1: Use <a href='user-policy.txt' target='_blank'>this</a> policy for your AWS user<br/>
 Note 2: Your awsIAMRoleName needs at least the AmazonEC2RoleforSSM policy attached to it</a><br/>
 </p><br/><br/>
-<button onclick="javascript:provisionNewImage()">provision new image</button><br/>
+<button onclick="javascript:provisionNewImage()">provision new image</button>
+<button onclick="javascript:cg.checkProvisionStatus()">check status</button><br/>
 <label for="provision">with password: </label><input type="text" id="provision" value=""/><br/>
 
 <script>
