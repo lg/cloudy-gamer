@@ -2,27 +2,43 @@
 <script src="utility.js"></script>
 <script src="cloudy-gamer.js"></script>
 cloudygamer by larry gadea - <a href="https://github.com/lg/cloudy-gamer/">github source and help</a><br/><br/>
-instance status: <span id='instance-status'>(retrieving)</span><br/>
-volume status: <span id='volume-status'>(retrieving)</span><br/>
-<button onclick="javascript:updateStatuses()">update status</button><br/>
-<br/>
-<button onclick="javascript:startInstance()">start instance</button>
-<button onclick="javascript:stopInstance()">stop instance</button><br/>
-<button onclick="javascript:cg.restartSteam()">restart steam</button><br/>
-<br/>
-<span id='cur-status'></span><br/>
+
+<div style='border:1px solid black; padding:5px'>
+  <label for="awsAccessKey">AWS Access Key: </label><input type="text" id="awsAccessKey" value=""/><br/>
+  <label for="awsSecretAccessKey">AWS Secret Access Key: </label><input type="text" id="awsSecretAccessKey" value=""/><br/>
+  <label for="awsIAMRoleName">AWS EC2 IAM Role Name: </label><input type="text" id="awsIAMRoleName" value=""/><br/>
+  <label for="awsRegionZone">AWS Region Zone: </label><input type="text" id="awsRegionZone" value=""/><br/>
+  <button onclick="javascript:saveConfigFromDOM()">save config</button>
+  <button onclick="javascript:cg.discoverAndCreateResources()">test/prep</button><br/>
+  <p style='font-size:50%'>
+    Note 1: Use <a href='user-policy.txt' target='_blank'>this</a> policy for your AWS user<br/>
+    Note 2: Your awsIAMRoleName needs at least the AmazonEC2RoleforSSM policy attached to it</a>
+  </p>
+</div>
 <br/>
 
+<div style='border:1px solid black; padding: 5px'>
+  <label for="awsVolumeName">AWS Volume Name: </label><input type="text" id="awsVolumeName" value=""/><br/>
+  <button onclick="javascript:saveConfigFromDOM()">save config</button><br/>
+  <button onclick="javascript:provisionNewImage()">provision new image</button>
+  <button onclick="javascript:cg.checkProvisionStatus()">check status</button>
+  <label for="provision">with password: </label><input type="text" id="provision" value=""/><br/>
+</div>
+<br/>
+
+<div style='border:1px solid black; padding: 5px'>
+  instance status: <span id='instance-status'>(retrieving)</span><br/>
+  volume status: <span id='volume-status'>(retrieving)</span><br/>
+  <button onclick="javascript:updateStatuses()">update status</button><br/>
+  <br/>
+  <button onclick="javascript:startInstance()">start instance</button>
+  <button onclick="javascript:stopInstance()">stop instance</button><br/>
+  <button onclick="javascript:cg.restartSteam()">restart steam</button><br/>
+  <br/>
+  <span id='cur-status'></span><br/>
+</div>
+
 <div id='config-container'></div>
-<button onclick="javascript:saveConfigFromDOM()">save config</button>
-<button onclick="javascript:cg.discoverAndCreateResources()">test/prep</button><br/>
-<p style='font-size:50%'>
-Note 1: Use <a href='user-policy.txt' target='_blank'>this</a> policy for your AWS user<br/>
-Note 2: Your awsIAMRoleName needs at least the AmazonEC2RoleforSSM policy attached to it</a><br/>
-</p><br/><br/>
-<button onclick="javascript:provisionNewImage()">provision new image</button>
-<button onclick="javascript:cg.checkProvisionStatus()">check status</button><br/>
-<label for="provision">with password: </label><input type="text" id="provision" value=""/><br/>
 
 <script>
   self.configKeysAndDefaults = {
@@ -61,7 +77,7 @@ Note 2: Your awsIAMRoleName needs at least the AmazonEC2RoleforSSM policy attach
 
   self.saveConfigFromDOM = () => {
     for (const configKey of Object.keys(self.configKeysAndDefaults)) {
-      self.config[configKey] = document.querySelector(`#${configKey}`).value
+      self.config[configKey] = document.getElementById(configKey).value
       if (typeof self.configKeysAndDefaults[configKey] === "number") {
         self.config[configKey] = Number(self.config[configKey])
       }
@@ -70,13 +86,8 @@ Note 2: Your awsIAMRoleName needs at least the AmazonEC2RoleforSSM policy attach
   }
 
   self.loadConfigIntoDOM = () => {
-    for (const configKey of Object.keys(self.configKeysAndDefaults)) {
-      const containerDiv = document.querySelector("#config-container")
-      const fieldDiv = document.createElement("div")
-
-      fieldDiv.innerHTML = `<label for="${configKey}">${configKey}</label><input type="text" id="${configKey}" value="${self.config[configKey]}"/><br/>`
-      containerDiv.appendChild(fieldDiv)
-    }
+    for (const configKey of Object.keys(self.configKeysAndDefaults))
+      document.getElementById(configKey).value = self.config[configKey]
   }
 
   self.startInstance = () => {
