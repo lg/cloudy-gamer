@@ -1,8 +1,14 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/aws-sdk/2.7.19/aws-sdk.min.js"></script>
 <script src="cloudy-gamer.js"></script>
+<style>
+  details {border: 1px solid black; padding: 5px; width: 600px; margin-bottom: 5px}
+  details[open] > summary {padding-bottom: 5px}
+</style>
+
 cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and help</a><br/><br/>
 
-<div style='border:1px solid black; padding: 5px; width: 600px'>
+<details id="aws-config-view">
+  <summary>AWS configuration</summary>
   <label for="awsAccessKey">AWS Access Key: </label><input type="text" id="awsAccessKey" value=""/><br/>
   <label for="awsSecretAccessKey">AWS Secret Access Key: </label><input type="text" id="awsSecretAccessKey" value=""/><br/>
   <label for="awsIAMRoleName">AWS EC2 IAM Role Name: </label><input type="text" id="awsIAMRoleName" value=""/><br/>
@@ -14,10 +20,10 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
     Note 1: Use <a href='user-policy.txt' target='_blank'>this</a> policy for your AWS user<br/>
     Note 2: Your awsIAMRoleName needs at least the AmazonEC2RoleforSSM policy attached to it</a>
   </p>
-</div>
-<br/>
+</details>
 
-<div style='border:1px solid black; padding: 5px; width: 600px'>
+<details id="volume-config-view">
+  <summary>Volume configuration</summary>
   <label for="awsVolumeName">AWS Volume Name: </label><input type="text" id="awsVolumeName" value=""/><br/>
   <button onclick="javascript:saveConfigFromDOM()">save config</button><br/>
   <button onclick="javascript:provisionNewImage()">provision new image</button>
@@ -25,10 +31,10 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
   <button onclick="javascript:terminateProvisioning()">terminate</button>
   <label for="provision">with password: </label><input type="text" id="provision" value=""/><br/>
   <span id='volume-provision-status' style='font-size:75%'>&nbsp;</span><br/>
-</div>
-<br/>
+</details>
 
-<div style='border:1px solid black; padding: 5px; width: 600px'>
+<details id="control-view">
+  <summary>CloudyGamer control</summary>
   instance status: <span id='instance-status'>(retrieving)</span><br/>
   volume status: <span id='volume-status'>(retrieving)</span><br/>
   <button onclick="javascript:updateStatuses()">update status</button><br/>
@@ -38,7 +44,7 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
   <button onclick="javascript:cg.restartSteam()">restart steam</button><br/>
   <br/>
   <span id='cur-status' style='font-size:75%'>&nbsp;</span><br/>
-</div>
+</details>
 
 <script>
   self.statusField = document.getElementById('cur-status')
