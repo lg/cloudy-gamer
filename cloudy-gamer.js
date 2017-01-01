@@ -137,12 +137,15 @@ class CloudyGamer {
     }
     this.bootAMI = images.Images[0].ImageId
 
-    console.log("Verifying EBS volume exists...")
+    // console.log("Verifying EBS volume exists...")
+    // const volumes = await this.ec2.describeVolumes({Filters: [{Name: "tag:Name", Values: [this.config.awsVolumeName]}]}).promise()
+    // if (volumes.Volumes.length === 0) {
+    //   throw new Error(`Unable to find an EBS volume with the name ${this.config.awsVolumeName}. You need to prep one (for example as per articles on https://www.reddit.com/r/cloudygamer/) and have it be in this zone (${this.config.awsRegionZone}).`)
+    // }
+    // this.volumeId = volumes.Volumes[0].VolumeId
     const volumes = await this.ec2.describeVolumes({Filters: [{Name: "tag:Name", Values: [this.config.awsVolumeName]}]}).promise()
-    if (volumes.Volumes.length === 0) {
-      throw new Error(`Unable to find an EBS volume with the name ${this.config.awsVolumeName}. You need to prep one (for example as per articles on https://www.reddit.com/r/cloudygamer/) and have it be in this zone (${this.config.awsRegionZone}).`)
-    }
-    this.volumeId = volumes.Volumes[0].VolumeId
+    if (volumes.Volumes.length > 0)
+      this.volumeId = volumes.Volumes[0].VolumeId
 
     console.log("Checking for VPC resources...")
     const vpcs = await this.ec2.describeVpcs({Filters: [{Name: "tag:Name", Values: [VPC_NAME]}]}).promise()
@@ -167,6 +170,7 @@ class CloudyGamer {
     }
     this.vpcSecurityGroupId = vpcSecurityGroup.GroupId
     this.securityGroupId = securityGroup ? securityGroup.GroupId : await this.createSecurityGroupResource()
+    console.log("Seems good!")
   }
 
   async findLowestPrice(instanceTypes) {
@@ -277,50 +281,40 @@ class CloudyGamer {
   }
 
   async startInstance() {
-    try {
-      await this.startSpotInstance(["Linux/UNIX", "Linux/UNIX (Amazon VPC)"], this.bootAMI, this.volumeId)
-      console.log("Ready!")
-
-    } catch (err) {
-      console.error(err)
-    }
+    await this.startSpotInstance(["Linux/UNIX", "Linux/UNIX (Amazon VPC)"], this.bootAMI, this.volumeId)
+    console.log("Ready!")
   }
 
   async provisionNewImage(userPassword) {
     if (!userPassword)
       throw new Error("You must specify a password for the cloudygamer user")
 
-    try {
-      console.log("Finding latest Windows Server 2016 AMI...")
-      const images = await this.ec2.describeImages({Filters: [
-        {Name: "description", Values: ["Microsoft Windows Server 2016 with Desktop Experience Locale English AMI provided by Amazon"]}
-      ]}).promise()
-      const newestAMI = images.Images.sort((a, b) => { return new Date(a.CreationDate) < new Date(b.CreationDate) })[0]
+    console.log("Finding latest Windows Server 2016 AMI...")
+    const images = await this.ec2.describeImages({Filters: [
+      {Name: "description", Values: ["Microsoft Windows Server 2016 with Desktop Experience Locale English AMI provided by Amazon"]}
+    ]}).promise()
+    const newestAMI = images.Images.sort((a, b) => { return new Date(a.CreationDate) < new Date(b.CreationDate) })[0]
 
-      const instanceId = await this.startSpotInstance(["Windows", "Windows (Amazon VPC)"], newestAMI.ImageId, null)
+    const instanceId = await this.startSpotInstance(["Windows", "Windows (Amazon VPC)"], newestAMI.ImageId, null)
 
-      console.log("Getting script...")
-      const scriptB64 = btoa(await (await fetch("cloudygamer.psm1")).text())
+    console.log("Getting script...")
+    const scriptB64 = btoa(await (await fetch("cloudygamer.psm1")).text())
 
-      console.log("Starting CloudyGamer Installer...")
-      await this.ssm.sendCommand({
-        DocumentName: "AWS-RunPowerShellScript",
-        InstanceIds: [instanceId],
-        Parameters: {
-          commands: [`New-Item -ItemType directory -Path "$Env:ProgramFiles\\WindowsPowerShell\\Modules\\CloudyGamer" -Force; [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("${scriptB64}")) | Out-File "$Env:ProgramFiles\\WindowsPowerShell\\Modules\\CloudyGamer\\cloudygamer.psm1"; Import-Module CloudyGamer; New-CloudyGamerInstall -Password "${userPassword}"`]
-        }}).promise()
-      console.log("Started.")
-
-    } catch (err) {
-      console.error(err)
-    }
+    console.log("Starting CloudyGamer Installer...")
+    await this.ssm.sendCommand({
+      DocumentName: "AWS-RunPowerShellScript",
+      InstanceIds: [instanceId],
+      Parameters: {
+        commands: [`New-Item -ItemType directory -Path "$Env:ProgramFiles\\WindowsPowerShell\\Modules\\CloudyGamer" -Force; [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("${scriptB64}")) | Out-File "$Env:ProgramFiles\\WindowsPowerShell\\Modules\\CloudyGamer\\cloudygamer.psm1"; Import-Module CloudyGamer; New-CloudyGamerInstall -Password "${userPassword}"`]
+      }}).promise()
+    console.log("Started.")
   }
 
   async checkProvisionStatus() {
     console.log("Retrieving instance id...")
     const instanceId = (await this.getInstance()).InstanceId
 
-    console.log("Sending request for status...")
+    console.log("Getting provision status...")
     const command = await this.ssm.sendCommand({
       DocumentName: "AWS-RunPowerShellScript",
       InstanceIds: [instanceId],
@@ -329,7 +323,7 @@ class CloudyGamer {
       }}).promise()
     const commandId = command.Command.CommandId
 
-    console.log("Waiting for result...")
+    console.log("Waiting for provision status result...")
     const result = await this.ssm.waitFor("CommandInvoked", {
       CommandId: commandId,
       InstanceId: instanceId,
@@ -355,20 +349,16 @@ class CloudyGamer {
   }
 
   async restartSteam() {
-    try {
-      const instance = await this.getInstance()
+    const instance = await this.getInstance()
 
-      console.log("Sending restart command...")
-      await this.ssm.sendCommand({
-        DocumentName: "AWS-RunPowerShellScript",
-        InstanceIds: [instance.InstanceId],
-        Parameters: {
-          commands: ["Start-ScheduledTask \"CloudyGamer Restart Steam\""]
-        }}).promise()
-      console.log("Steam restart command successfully sent")
-    } catch (err) {
-      console.error(err)
-    }
+    console.log("Sending restart command...")
+    await this.ssm.sendCommand({
+      DocumentName: "AWS-RunPowerShellScript",
+      InstanceIds: [instance.InstanceId],
+      Parameters: {
+        commands: ["Start-ScheduledTask \"CloudyGamer Restart Steam\""]
+      }}).promise()
+    console.log("Steam restart command successfully sent")
   }
 
   async isVolumeAvailable() {

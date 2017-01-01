@@ -1,15 +1,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/aws-sdk/2.7.19/aws-sdk.min.js"></script>
-<script src="utility.js"></script>
 <script src="cloudy-gamer.js"></script>
-cloudygamer by larry gadea - <a href="https://github.com/lg/cloudy-gamer/">github source and help</a><br/><br/>
+cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and help</a><br/><br/>
 
-<div style='border:1px solid black; padding:5px'>
+<div style='border:1px solid black; padding: 5px; width: 600px'>
   <label for="awsAccessKey">AWS Access Key: </label><input type="text" id="awsAccessKey" value=""/><br/>
   <label for="awsSecretAccessKey">AWS Secret Access Key: </label><input type="text" id="awsSecretAccessKey" value=""/><br/>
   <label for="awsIAMRoleName">AWS EC2 IAM Role Name: </label><input type="text" id="awsIAMRoleName" value=""/><br/>
   <label for="awsRegionZone">AWS Region Zone: </label><input type="text" id="awsRegionZone" value=""/><br/>
   <button onclick="javascript:saveConfigFromDOM()">save config</button>
-  <button onclick="javascript:cg.discoverAndCreateResources()">test/prep</button><br/>
+  <button onclick="javascript:testMainConfig()">test/prep</button>
+  <span id='test-aws-status' style='font-size:75%'>&nbsp;</span><br/>
   <p style='font-size:50%'>
     Note 1: Use <a href='user-policy.txt' target='_blank'>this</a> policy for your AWS user<br/>
     Note 2: Your awsIAMRoleName needs at least the AmazonEC2RoleforSSM policy attached to it</a>
@@ -17,16 +17,18 @@ cloudygamer by larry gadea - <a href="https://github.com/lg/cloudy-gamer/">githu
 </div>
 <br/>
 
-<div style='border:1px solid black; padding: 5px'>
+<div style='border:1px solid black; padding: 5px; width: 600px'>
   <label for="awsVolumeName">AWS Volume Name: </label><input type="text" id="awsVolumeName" value=""/><br/>
   <button onclick="javascript:saveConfigFromDOM()">save config</button><br/>
   <button onclick="javascript:provisionNewImage()">provision new image</button>
-  <button onclick="javascript:cg.checkProvisionStatus()">check status</button>
+  <button onclick="javascript:checkProvisionStatus()">check status</button>
+  <button onclick="javascript:terminateProvisioning()">terminate</button>
   <label for="provision">with password: </label><input type="text" id="provision" value=""/><br/>
+  <span id='volume-provision-status' style='font-size:75%'>&nbsp;</span><br/>
 </div>
 <br/>
 
-<div style='border:1px solid black; padding: 5px'>
+<div style='border:1px solid black; padding: 5px; width: 600px'>
   instance status: <span id='instance-status'>(retrieving)</span><br/>
   volume status: <span id='volume-status'>(retrieving)</span><br/>
   <button onclick="javascript:updateStatuses()">update status</button><br/>
@@ -35,12 +37,13 @@ cloudygamer by larry gadea - <a href="https://github.com/lg/cloudy-gamer/">githu
   <button onclick="javascript:stopInstance()">stop instance</button><br/>
   <button onclick="javascript:cg.restartSteam()">restart steam</button><br/>
   <br/>
-  <span id='cur-status'></span><br/>
+  <span id='cur-status' style='font-size:75%'>&nbsp;</span><br/>
 </div>
 
-<div id='config-container'></div>
-
 <script>
+  self.statusField = document.getElementById('cur-status')
+  self.provisionTimer = null
+
   self.configKeysAndDefaults = {
     awsAccessKey: "",               // See user-policy.txt for inline policy
     awsSecretAccessKey: "",
@@ -90,16 +93,27 @@ cloudygamer by larry gadea - <a href="https://github.com/lg/cloudy-gamer/">githu
       document.getElementById(configKey).value = self.config[configKey]
   }
 
-  self.startInstance = () => {
-    self.cg.startInstance().then(_ => {
-      self.updateStatuses()
-    })
+  self.testMainConfig = async function() {
+    self.statusField = document.getElementById("test-aws-status")
+    await cg.discoverAndCreateResources()
+    self.statusField = document.getElementById("cur-status")
   }
 
-  self.stopInstance = () => {
-    self.cg.stopInstance().then(_ => {
-      self.updateStatuses()
-    })
+  self.startInstance = async function() {
+    await self.cg.startInstance()
+    self.updateStatuses()
+  }
+
+  self.stopInstance = async function() {
+    await self.cg.stopInstance()
+    self.updateStatuses()
+  }
+
+  self.terminateProvisioning = async function() {
+    self.statusField = document.getElementById("volume-provision-status")
+    await self.cg.stopInstance()
+    self.updateStatuses()
+    self.statusField = document.getElementById("cur-status")
   }
 
   self.updateStatuses = () => {
@@ -123,8 +137,31 @@ cloudygamer by larry gadea - <a href="https://github.com/lg/cloudy-gamer/">githu
     })
   }
 
-  self.provisionNewImage = () => {
-    self.cg.provisionNewImage(document.querySelector("#provision").value)
+  self.provisionNewImage = async function() {
+    self.statusField = document.getElementById("volume-provision-status")
+    await self.cg.provisionNewImage(document.querySelector("#provision").value)
+    self.provisionTimer = setInterval(self.updateProvisionStatus, 30000)
+    self.statusField = document.getElementById("cur-status")
+  }
+
+  self.updateProvisionStatus = async function() {
+    await self.cg.checkProvisionStatus(document.querySelector("#provision").value)
+  }
+
+  self.checkProvisionStatus = async function() {
+    self.statusField = document.getElementById("volume-provision-status")
+    await self.updateProvisionStatus()
+    self.statusField = document.getElementById("cur-status")
+  }
+
+  console.logCopy = console.log.bind(console)
+  console.log = data => {
+    console.logCopy(`%c${new Date().toISOString().replace(/[TZ]/g, " ")}%c${data}`, "color: gray", "")
+    self.statusField.textContent = data
+  }
+  console.error = data => {
+    console.errorCopy(data)
+    self.statusField.textContent = data
   }
 
   self.start()
