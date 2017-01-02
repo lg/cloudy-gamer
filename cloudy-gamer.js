@@ -1,3 +1,5 @@
+(async function(){}) /* JustInTimeBabel will re-run this script */
+
 const EXTRA_DOLLARS = 0.10
 const TOO_EXPENSIVE = 1.50
 const FULFILLMENT_TIMEOUT_MINUTES = 5

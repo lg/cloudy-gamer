@@ -1,12 +1,22 @@
-<script src="https://cdnjs.cloudflare.com/ajax/libs/aws-sdk/2.7.19/aws-sdk.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lockr/0.8.4/lockr.min.js"></script>
-<script src="cloudy-gamer.js"></script>
-<style>
-  details {border: 1px solid black; padding: 5px; width: 600px; margin-bottom: 5px}
-  details[open] > summary {margin-bottom: 5px}
-  summary {cursor: pointer}
-  summary:focus {outline: none}
-</style>
+<head>
+  <meta charset="utf-8" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/aws-sdk/2.7.19/aws-sdk.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lockr/0.8.4/lockr.min.js"></script>
+  <script src="just-in-time-babel.js"></script>
+
+  <script>
+    if (!window.fetch) { document.write("<script src='https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.min.js'><\/script>") }
+    JustInTimeBabel.beginSilencingErrors()
+  </script>
+  <script src='cloudy-gamer.js' data-just-in-time-babel></script>
+
+  <style>
+    details {border: 1px solid black; padding: 5px; width: 600px; margin-bottom: 5px}
+    details[open] > summary {margin-bottom: 5px}
+    summary {cursor: pointer}
+    summary:focus {outline: none}
+  </style>
+</head>
 
 cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and help</a><br/><br/>
 
@@ -28,8 +38,8 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
   <summary>Volume configuration</summary>
   <label for="awsVolumeId">AWS Volume ID: </label><input type="text" id="awsVolumeId" value=""/><br/>
   <button onclick="saveAndReloadCG()">save config</button><br/>
-  <label for="provision">provision new image with password: </label><input type="text" id="provision" value=""/>
-  <button onclick="provisionNewImage()">start</button>
+  <label for="provision">new image with password: </label><input type="text" id="provision" value=""/>
+  <button onclick="provisionNewImage()">provision</button>
   <button onclick="updateProvisionStatus()">check status</button>
   <button onclick="terminateProvisioning()">terminate</button>
 </details>
@@ -48,7 +58,9 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
 
 <span id='cur-status' style='font-size:75%'>&nbsp;</span><br/>
 
-<script>
+<script data-just-in-time-babel>
+  (async function(){}) /* JustInTimeBabel will re-run this script */
+
   self.config = {}
 
   start = () => {
@@ -166,3 +178,5 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
 
   start()
 </script>
+
+<script>JustInTimeBabel.itsTime()</script>
