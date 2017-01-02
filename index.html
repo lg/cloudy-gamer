@@ -49,7 +49,6 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
 <span id='cur-status' style='font-size:75%'>&nbsp;</span><br/>
 
 <script>
-  self.provisionTimer = null
   self.config = {}
 
   start = () => {
@@ -67,6 +66,7 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
       document.querySelector("#volume-config-panel").open = true
     } else {
       document.querySelector("#control-panel").open = true
+      updateStatuses()
     }
 
     // only one panel should be openable at once
@@ -106,20 +106,20 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
 
   startInstance = async function() {
     await self.cg.startInstance()
-    updateStatuses()
+    await updateStatuses()
   }
 
   stopInstance = async function() {
     await self.cg.stopInstance()
-    updateStatuses()
+    await updateStatuses()
   }
 
   terminateProvisioning = async function() {
     await self.cg.stopInstance()
-    updateStatuses()
+    await updateStatuses()
   }
 
-  updateStatuses = () => {
+  async function updateStatuses() {
     const instanceStatusEl = document.querySelector("#instance-status")
     const volumeStatusEl = document.querySelector("#volume-status")
 
@@ -135,14 +135,23 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
       instanceStatusEl.textContent = "not running"
     })
 
-    self.cg.isVolumeAvailable().then(result => {
+    try {
+      const result = await self.cg.isVolumeAvailable()
       volumeStatusEl.textContent = result ? "available" : "in use"
-    })
+    } catch (err) {
+      console.log(`WARNING: The cloudygamer volume ${self.config.awsVolumeId} wasn't found!`)
+      volumeStatusEl.textContent = "not found"
+    }
   }
 
   provisionNewImage = async function() {
-    await self.cg.provisionNewImage(document.querySelector("#provision").value)
-    self.provisionTimer = setInterval(self.updateProvisionStatus, 60000)
+    const finalStatus = await self.cg.provisionNewImage(document.querySelector("#provision").value)
+    if (finalStatus.success) {
+      document.getElementById("awsVolumeId").value = finalStatus.volumeId
+      saveAndReloadCG()
+      document.querySelector("#control-panel").open = true
+      await updateStatuses()
+    }
   }
 
   updateProvisionStatus = async function() {

@@ -267,7 +267,7 @@ workflow Install-CloudyGamer {
   }
 
   InlineScript {
-    Write-Status "Running windows update and disabling it (this will take a while)"
+    Write-Status "Running windows update and disabling it (this may take a while)"
 
     # disable Windows Update
     Set-ItemProperty "HKLM:\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\WindowsUpdate\AU" "NoAutoUpdate" 1

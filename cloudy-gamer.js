@@ -282,6 +282,8 @@ class CloudyGamer {
   async provisionNewImage(userPassword) {
     if (!userPassword)
       throw new Error("You must specify a password for the cloudygamer user")
+    if (this.config.awsVolumeId)
+      throw new Error("The AWS Volume ID must be blank (and saved) before provisioning a new image")
 
     console.log("Finding latest Windows Server 2016 AMI...")
     const images = await this.ec2.describeImages({Filters: [
@@ -290,8 +292,12 @@ class CloudyGamer {
     const newestAMI = images.Images.sort((a, b) => { return new Date(a.CreationDate) < new Date(b.CreationDate) })[0]
 
     const instanceId = await this.startSpotInstance(["Windows", "Windows (Amazon VPC)"], newestAMI.ImageId, null, true)
+    const volumeId = (await this.ec2.describeVolumes({Filters: [{Name: "attachment.instance-id", Values: [instanceId]}]}).promise()).Volumes[0].VolumeId
 
-    console.log("Getting script...")
+    console.log(`Volume ID of instance is: ${volumeId}. Tagging it...`)
+    await this.ec2.createTags({Resources: [volumeId], Tags: [{Key: "Name", Value: "cloudygamer"}]}).promise()
+
+    console.log("Getting installer script...")
     const scriptB64 = btoa(await (await fetch("cloudygamer.psm1")).text())
 
     console.log("Starting CloudyGamer Installer...")
@@ -301,32 +307,48 @@ class CloudyGamer {
       Parameters: {
         commands: [`New-Item -ItemType directory -Path "$Env:ProgramFiles\\WindowsPowerShell\\Modules\\CloudyGamer" -Force; [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("${scriptB64}")) | Out-File "$Env:ProgramFiles\\WindowsPowerShell\\Modules\\CloudyGamer\\cloudygamer.psm1"; Import-Module CloudyGamer; New-CloudyGamerInstall -Password "${userPassword}"`]
       }}).promise()
-    console.log("Started.")
+
+    console.log("Installer started. This will take around 10-30 minutes. Status will be shown here roughly every minute.")
+    let success = false
+    for (let i = 0; i < 30; i++) {
+      await new Promise(resolve => setTimeout(resolve, 60000))
+
+      const lastLine = await this.checkProvisionStatus()
+      if (lastLine.includes("All done!")) {
+        success = true
+        break
+      }
+    }
+
+    if (success) {
+      console.log(`Successfully created the image volume ${volumeId}. NOTE: Instance is still running!`)
+    } else {
+      console.log(`Polled for ~30 minutes, image failed to be created in time. NOTE: Instance is still running!`)
+    }
+
+    return {success: success, volumeId: volumeId}
   }
 
   async checkProvisionStatus() {
-    console.log("Retrieving instance id...")
     const instanceId = (await this.getInstance()).InstanceId
 
-    console.log("Getting provision status...")
     const command = await this.ssm.sendCommand({
       DocumentName: "AWS-RunPowerShellScript",
       InstanceIds: [instanceId],
       Parameters: {
-        commands: [`Get-Content "c:\\cloudygamer\\installer.txt"`]
+        commands: [`Get-Content "c:\\cloudygamer\\installer.txt" -Tail 1`]
       }}).promise()
     const commandId = command.Command.CommandId
 
-    console.log("Waiting for provision status result...")
     const result = await this.ssm.waitFor("CommandInvoked", {
       CommandId: commandId,
       InstanceId: instanceId,
       Details: true
     }).promise()
-    const outputLines = result.CommandInvocations[0].CommandPlugins[0].Output.split("\n")
-    const lastLine = outputLines[outputLines.length - 2]
+    const lastLine = result.CommandInvocations[0].CommandPlugins[0].Output.trim()
 
     console.log(`Latest status is: ${lastLine}`)
+    return lastLine
   }
 
   async stopInstance() {
