@@ -26,12 +26,12 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
 
 <details id="volume-config-panel">
   <summary>Volume configuration</summary>
-  <label for="awsVolumeName">AWS Volume Name: </label><input type="text" id="awsVolumeName" value=""/><br/>
+  <label for="awsVolumeId">AWS Volume ID: </label><input type="text" id="awsVolumeId" value=""/><br/>
   <button onclick="saveAndReloadCG()">save config</button><br/>
-  <button onclick="provisionNewImage()">provision new image</button>
+  <label for="provision">provision new image with password: </label><input type="text" id="provision" value=""/>
+  <button onclick="provisionNewImage()">start</button>
   <button onclick="updateProvisionStatus()">check status</button>
   <button onclick="terminateProvisioning()">terminate</button>
-  <label for="provision">with password: </label><input type="text" id="provision" value=""/><br/>
 </details>
 
 <details id="control-panel">
@@ -57,17 +57,19 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
     bindLockr("awsSecretAccessKey", "")
     bindLockr("awsIAMRoleName", "")
     bindLockr("awsRegionZone", "us-west-1c")
-    bindLockr("awsVolumeName", "")
+    bindLockr("awsVolumeId", "")
     saveAndReloadCG()
 
+    // default opened panel depends on what settings you have populated
     if (!config.awsAccessKey || !config.awsSecretAccessKey || !config.awsSecretAccessKey || !config.awsRegionZone) {
       document.querySelector("#aws-config-panel").open = true
-    } else if (!config.awsVolumeName) {
+    } else if (!config.awsVolumeId) {
       document.querySelector("#volume-config-panel").open = true
     } else {
       document.querySelector("#control-panel").open = true
     }
 
+    // only one panel should be openable at once
     for (const panel of document.querySelectorAll("details")) {
       panel.ontoggle = (event) => {
         if (document.getElementById(event.srcElement.id).open) {
@@ -140,7 +142,7 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
 
   provisionNewImage = async function() {
     await self.cg.provisionNewImage(document.querySelector("#provision").value)
-    self.provisionTimer = setInterval(self.updateProvisionStatus, 30000)
+    self.provisionTimer = setInterval(self.updateProvisionStatus, 60000)
   }
 
   updateProvisionStatus = async function() {

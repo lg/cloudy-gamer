@@ -25,7 +25,6 @@ class CloudyGamer {
     this.vpcSecurityGroupId = null
     this.vpcSubnetId = null
     this.bootAMI = null
-    this.volumeId = null
 
     this.ssm.api.waiters = {
       InstanceOnline: {
@@ -61,9 +60,6 @@ class CloudyGamer {
   }
 
   async createVPCResources() {
-    // TODO: consider classiclink?
-    // TODO: handle the 'unnecessary' lines below
-
     console.log("  Creating VPC...")
     const vpc = await this.ec2.createVpc({CidrBlock: "10.0.0.0/16", InstanceTenancy: "default"}).promise()
 
@@ -73,14 +69,12 @@ class CloudyGamer {
     console.log("  Getting VPC's Route Table ID...")
     const routeTables = await this.ec2.describeRouteTables({Filters: [{Name: "vpc-id", Values: [vpc.Vpc.VpcId]}]}).promise()
 
-    // TODO: maybe unnecessary?
     console.log("  Associating Route table to subnet...")
     await this.ec2.associateRouteTable({RouteTableId: routeTables.RouteTables[0].RouteTableId, SubnetId: subnet.Subnet.SubnetId}).promise()
 
     console.log("  Creating Internet Gateway...")
     const gateway = await this.ec2.createInternetGateway({}).promise()
 
-    // TODO: maybe unnecessary?
     console.log("  Attaching Internet Gateway to VPC...")
     await this.ec2.attachInternetGateway({InternetGatewayId: gateway.InternetGateway.InternetGatewayId, VpcId: vpc.Vpc.VpcId}).promise()
 
@@ -136,16 +130,6 @@ class CloudyGamer {
       throw new Error(`Unable to find AMI ${BOOT_AMI_NAME} by owner ${BOOT_AMI_OWNER} in region ${this.awsRegion}. It's likely this region doesn't have have g2.2xlarge machines. Pick another region.`)
     }
     this.bootAMI = images.Images[0].ImageId
-
-    // console.log("Verifying EBS volume exists...")
-    // const volumes = await this.ec2.describeVolumes({Filters: [{Name: "tag:Name", Values: [this.config.awsVolumeName]}]}).promise()
-    // if (volumes.Volumes.length === 0) {
-    //   throw new Error(`Unable to find an EBS volume with the name ${this.config.awsVolumeName}. You need to prep one (for example as per articles on https://www.reddit.com/r/cloudygamer/) and have it be in this zone (${this.config.awsRegionZone}).`)
-    // }
-    // this.volumeId = volumes.Volumes[0].VolumeId
-    const volumes = await this.ec2.describeVolumes({Filters: [{Name: "tag:Name", Values: [this.config.awsVolumeName]}]}).promise()
-    if (volumes.Volumes.length > 0)
-      this.volumeId = volumes.Volumes[0].VolumeId
 
     console.log("Checking for VPC resources...")
     const vpcs = await this.ec2.describeVpcs({Filters: [{Name: "tag:Name", Values: [VPC_NAME]}]}).promise()
@@ -210,9 +194,18 @@ class CloudyGamer {
     return lowest
   }
 
-  async startSpotInstance(instanceTypes, amiId, attachVolumeId) {
+  async startSpotInstance(instanceTypes, amiId, attachVolumeId, keepEBSVolume) {
     await this.discoverAndCreateResources()
     const lowest = await this.findLowestPrice(instanceTypes)
+    amiId = amiId || this.bootAMI
+
+    let blockDeviceMappings = null
+    if (keepEBSVolume) {
+      console.log("Getting AMI details for EBS details...")
+      const image = await this.ec2.describeImages({ImageIds: [amiId]}).promise()
+      blockDeviceMappings = image.Images[0].BlockDeviceMappings
+      blockDeviceMappings[0].Ebs.DeleteOnTermination = false
+    }
 
     console.log("Requesting spot instance...")
     const isVPC = lowest.ProductDescription.includes("VPC")
@@ -224,6 +217,7 @@ class CloudyGamer {
         ImageId: amiId,
         SecurityGroupIds: isVPC ? null : [this.securityGroupId],
         InstanceType: lowest.InstanceType,
+        BlockDeviceMappings: blockDeviceMappings,
         Placement: {
           AvailabilityZone: lowest.AvailabilityZone
         },
@@ -263,7 +257,7 @@ class CloudyGamer {
         InstanceId: instanceId,
         Device: "/dev/xvdb"}).promise()
       await this.ec2.waitFor("volumeInUse", {
-        VolumeIds: [this.volumeId],
+        VolumeIds: [attachVolumeId],
         Filters: [{
           Name: "attachment.status",
           Values: ["attached"]
@@ -281,7 +275,7 @@ class CloudyGamer {
   }
 
   async startInstance() {
-    await this.startSpotInstance(["Linux/UNIX", "Linux/UNIX (Amazon VPC)"], this.bootAMI, this.volumeId)
+    await this.startSpotInstance(["Linux/UNIX", "Linux/UNIX (Amazon VPC)"], null, this.config.awsVolumeId, false)
     console.log("Ready!")
   }
 
@@ -295,7 +289,7 @@ class CloudyGamer {
     ]}).promise()
     const newestAMI = images.Images.sort((a, b) => { return new Date(a.CreationDate) < new Date(b.CreationDate) })[0]
 
-    const instanceId = await this.startSpotInstance(["Windows", "Windows (Amazon VPC)"], newestAMI.ImageId, null)
+    const instanceId = await this.startSpotInstance(["Windows", "Windows (Amazon VPC)"], newestAMI.ImageId, null, true)
 
     console.log("Getting script...")
     const scriptB64 = btoa(await (await fetch("cloudygamer.psm1")).text())
@@ -362,7 +356,7 @@ class CloudyGamer {
   }
 
   async isVolumeAvailable() {
-    const volumes = await this.ec2.describeVolumes({Filters: [{Name: "tag:Name", Values: [this.config.awsVolumeName]}]}).promise()
+    const volumes = await this.ec2.describeVolumes({Filters: [{Name: "volume-id", Values: [this.config.awsVolumeId]}]}).promise()
     return volumes.Volumes[0].State === "available"
   }
 
