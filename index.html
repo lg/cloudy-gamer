@@ -3,12 +3,14 @@
 <script src="cloudy-gamer.js"></script>
 <style>
   details {border: 1px solid black; padding: 5px; width: 600px; margin-bottom: 5px}
-  details[open] > summary {padding-bottom: 5px}
+  details[open] > summary {margin-bottom: 5px}
+  summary {cursor: pointer}
+  summary:focus {outline: none}
 </style>
 
 cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and help</a><br/><br/>
 
-<details id="aws-config-view">
+<details id="aws-config-panel">
   <summary>AWS configuration</summary>
   <label for="awsAccessKey">AWS Access Key: </label><input type="text" id="awsAccessKey" value=""/><br/>
   <label for="awsSecretAccessKey">AWS Secret Access Key: </label><input type="text" id="awsSecretAccessKey" value=""/><br/>
@@ -16,53 +18,67 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
   <label for="awsRegionZone">AWS Region Zone: </label><input type="text" id="awsRegionZone" value=""/><br/>
   <button onclick="saveAndReloadCG()">save config</button>
   <button onclick="testMainConfig()">test/prep</button>
-  <span id='test-aws-status' style='font-size:75%'>&nbsp;</span><br/>
   <p style='font-size:50%'>
     Note 1: Use <a href='user-policy.txt' target='_blank'>this</a> policy for your AWS user<br/>
     Note 2: Your awsIAMRoleName needs at least the AmazonEC2RoleforSSM policy attached to it</a>
   </p>
 </details>
 
-<details id="volume-config-view">
+<details id="volume-config-panel">
   <summary>Volume configuration</summary>
   <label for="awsVolumeName">AWS Volume Name: </label><input type="text" id="awsVolumeName" value=""/><br/>
   <button onclick="saveAndReloadCG()">save config</button><br/>
   <button onclick="provisionNewImage()">provision new image</button>
-  <button onclick="checkProvisionStatus()">check status</button>
+  <button onclick="updateProvisionStatus()">check status</button>
   <button onclick="terminateProvisioning()">terminate</button>
   <label for="provision">with password: </label><input type="text" id="provision" value=""/><br/>
-  <span id='volume-provision-status' style='font-size:75%'>&nbsp;</span><br/>
 </details>
 
-<details id="control-view">
+<details id="control-panel">
   <summary>CloudyGamer control</summary>
-  instance status: <span id='instance-status'>(retrieving)</span><br/>
-  volume status: <span id='volume-status'>(retrieving)</span><br/>
+  instance status: <span id='instance-status'>(unknown)</span><br/>
+  volume status: <span id='volume-status'>(unknown)</span><br/>
   <button onclick="updateStatuses()">update status</button><br/>
   <br/>
   <button onclick="startInstance()">start instance</button>
   <button onclick="stopInstance()">stop instance</button><br/>
   <button onclick="cg.restartSteam()">restart steam</button><br/>
   <br/>
-  <span id='cur-status' style='font-size:75%'>&nbsp;</span><br/>
 </details>
 
-<script>
-  self.statusField = document.getElementById('cur-status')
-  self.provisionTimer = null
+<span id='cur-status' style='font-size:75%'>&nbsp;</span><br/>
 
+<script>
+  self.provisionTimer = null
   self.config = {}
 
-  self.start = () => {
+  start = () => {
     bindLockr("awsAccessKey", "")
     bindLockr("awsSecretAccessKey", "")
     bindLockr("awsIAMRoleName", "")
     bindLockr("awsRegionZone", "us-west-1c")
-    bindLockr("awsVolumeName", "cloudygamer")
+    bindLockr("awsVolumeName", "")
     saveAndReloadCG()
+
+    if (!config.awsAccessKey || !config.awsSecretAccessKey || !config.awsSecretAccessKey || !config.awsRegionZone) {
+      document.querySelector("#aws-config-panel").open = true
+    } else if (!config.awsVolumeName) {
+      document.querySelector("#volume-config-panel").open = true
+    } else {
+      document.querySelector("#control-panel").open = true
+    }
+
+    for (const panel of document.querySelectorAll("details")) {
+      panel.ontoggle = (event) => {
+        if (document.getElementById(event.srcElement.id).open) {
+          if ((toClose = document.querySelector(`details:not(#${event.srcElement.id})[open]`)))
+            toClose.open = false
+        }
+      }
+    }
   }
 
-  self.saveAndReloadCG = () => {
+  saveAndReloadCG = () => {
     for (const configName of Object.getOwnPropertyNames(self.config)) {
       if ((el = document.getElementById(configName)))
         self.config[configName] = el.value
@@ -70,7 +86,7 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
     self.cg = new CloudyGamer(self.config)
   }
 
-  self.bindLockr = (configName, defaultValue) => {
+  bindLockr = (configName, defaultValue) => {
     Object.defineProperty(self.config, configName, {
       set: (newVal) => {
         Lockr.set(configName, newVal)
@@ -82,30 +98,26 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
       el.value = self.config[configName]
   }
 
-  self.testMainConfig = async function() {
-    self.statusField = document.getElementById("test-aws-status")
+  testMainConfig = async function() {
     await cg.discoverAndCreateResources()
-    self.statusField = document.getElementById("cur-status")
   }
 
-  self.startInstance = async function() {
+  startInstance = async function() {
     await self.cg.startInstance()
-    self.updateStatuses()
+    updateStatuses()
   }
 
-  self.stopInstance = async function() {
+  stopInstance = async function() {
     await self.cg.stopInstance()
-    self.updateStatuses()
+    updateStatuses()
   }
 
-  self.terminateProvisioning = async function() {
-    self.statusField = document.getElementById("volume-provision-status")
+  terminateProvisioning = async function() {
     await self.cg.stopInstance()
-    self.updateStatuses()
-    self.statusField = document.getElementById("cur-status")
+    updateStatuses()
   }
 
-  self.updateStatuses = () => {
+  updateStatuses = () => {
     const instanceStatusEl = document.querySelector("#instance-status")
     const volumeStatusEl = document.querySelector("#volume-status")
 
@@ -126,32 +138,20 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
     })
   }
 
-  self.provisionNewImage = async function() {
-    self.statusField = document.getElementById("volume-provision-status")
+  provisionNewImage = async function() {
     await self.cg.provisionNewImage(document.querySelector("#provision").value)
     self.provisionTimer = setInterval(self.updateProvisionStatus, 30000)
-    self.statusField = document.getElementById("cur-status")
   }
 
-  self.updateProvisionStatus = async function() {
+  updateProvisionStatus = async function() {
     await self.cg.checkProvisionStatus(document.querySelector("#provision").value)
-  }
-
-  self.checkProvisionStatus = async function() {
-    self.statusField = document.getElementById("volume-provision-status")
-    await self.updateProvisionStatus()
-    self.statusField = document.getElementById("cur-status")
   }
 
   console.logCopy = console.log.bind(console)
   console.log = data => {
     console.logCopy(`%c${new Date().toISOString().replace(/[TZ]/g, " ")}%c${data}`, "color: gray", "")
-    self.statusField.textContent = data
-  }
-  console.error = data => {
-    console.errorCopy(data)
-    self.statusField.textContent = data
+    document.getElementById("cur-status").textContent = data
   }
 
-  self.start()
+  start()
 </script>
