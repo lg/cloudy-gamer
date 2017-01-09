@@ -138,9 +138,12 @@ workflow Install-CloudyGamer {
       Remove-Item "$home\Desktop\EC2 Microsoft Windows Guide.website" -ErrorAction SilentlyContinue
     }
 
-    # show file extensions
+    # show file extensions, hidden items and disable item checkboxes
     $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
     Set-ItemProperty $key HideFileExt 0
+    Set-ItemProperty $key HideDrivesWithNoMedia 0
+    Set-ItemProperty $key Hidden 1
+    Set-ItemProperty $key AutoCheckSelect 0
 
     # weird accessibility stuff
     Set-ItemProperty "HKCU:\Control Panel\Accessibility\StickyKeys" "Flags" "506"
@@ -164,14 +167,21 @@ workflow Install-CloudyGamer {
   InlineScript {
     Write-Status "Installing video card drivers"
 
-    # nvidia driver (ec2 only)
+    # nvidia driver
     if ($Using:IsAWS) {
+      # Nvidia GRID K520
       $drivers = (New-Object System.Net.WebClient).DownloadString("http://www.nvidia.com/Download/processFind.aspx?psid=94&pfid=704&osid=57&lid=1&whql=1&lang=en-us&ctk=0")
       $driverversion = $($drivers -match '<td class="gridItem">R.*\((.*)\)</td>' | Out-Null; $Matches[1])
       (New-Object System.Net.WebClient).DownloadFile("http://us.download.nvidia.com/Windows/Quadro_Certified/$driverversion/$driverversion-quadro-grid-desktop-notebook-win10-64bit-international-whql.exe", "c:\cloudygamer\downloads\nvidia.exe")
-      & c:\cloudygamer\7za\7za x c:\cloudygamer\downloads\nvidia.exe -oc:\cloudygamer\downloads\nvidia
-      & c:\cloudygamer\downloads\nvidia\setup.exe -noreboot -clean -s | Out-Null
+
+    } else {
+      # Nvidia Tesla M60
+      $drivers = (New-Object System.Net.WebClient).DownloadString("http://www.nvidia.com/Download/processFind.aspx?psid=75&pfid=783&osid=74&lid=1&whql=1&lang=en-us&ctk=16")
+      $driverversion = $($drivers -match '<td class="gridItem">(\d\d\d\.\d\d)</td>' | Out-Null; $Matches[1])
+      (New-Object System.Net.WebClient).DownloadFile("http://us.download.nvidia.com/Windows/Quadro_Certified/$driverversion/$driverversion-tesla-desktop-winserver2016-international-whql.exe", "c:\cloudygamer\downloads\nvidia.exe")
     }
+    & c:\cloudygamer\7za\7za x c:\cloudygamer\downloads\nvidia.exe -oc:\cloudygamer\downloads\nvidia
+    & c:\cloudygamer\downloads\nvidia\setup.exe -noreboot -clean -s | Out-Null
 
     # set proper video modes
     # default: {*}S 720x480x8,16,32,64=1; 720x576x8,16,32,64=8032;SHV 1280x720x8,16,32,64 1680x1050x8,16,32,64 1920x1080x8,16,32,64 2048x1536x8,16,32,64=1; 1920x1440x8,16,32,64=1F; 640x480x8,16,32,64 800x600x8,16,32,64 1024x768x8,16,32,64=1FFF; 1920x1200x8,16,32,64=3F; 1600x900x8,16,32,64=3FF; 2560x1440x8,16,32,64 2560x1600x8,16,32,64=7B; 1600x1024x8,16,32,64 1600x1200x8,16,32,64=7F;1280x768x8,16,32,64 1280x800x8,16,32,64 1280x960x8,16,32,64 1280x1024x8,16,32,64 1360x768x8,16,32,64 1366x768x8,16,32,64=7FF; 1152x864x8,16,32,64=FFF;
@@ -185,15 +195,15 @@ workflow Install-CloudyGamer {
   InlineScript {
     Write-Status "Removing basic display adapter and enabling nvfbc"
 
-    # disable the basic display adapter
-    if ($Using:IsAws) {
-      Import-Module DeviceManagement
-      Get-Device | where Name -eq "Microsoft Basic Display Adapter" | Disable-Device
-    }
+    # disable the basic display adapter and its monitors
+    Import-Module DeviceManagement
+    Get-Device | where Name -eq "Microsoft Basic Display Adapter" | Disable-Device  # aws
+    Get-Device | where Name -eq "Microsoft Hyper-V Video" | Disable-Device  # azure
+    Get-Device | where Name -eq "Generic PnP Monitor" | where DeviceParent -like "*BasicDisplay*" | Disable-Device  # azure
 
     # delete the basic display adapter's drivers (since some games still insist on using the basic adapter)
     takeown /f C:\Windows\System32\Drivers\BasicDisplay.sys
-    icacls C:\Windows\System32\Drivers\BasicDisplay.sys /grant cloudygamer:F
+    icacls C:\Windows\System32\Drivers\BasicDisplay.sys /grant "$env:username`:F"
     move C:\Windows\System32\Drivers\BasicDisplay.sys C:\Windows\System32\Drivers\BasicDisplay.old
 
     # install nvfbcenable
@@ -251,7 +261,7 @@ workflow Install-CloudyGamer {
     # download bnet (needs to be launched twice because of some error)
     (New-Object System.Net.WebClient).DownloadFile("https://www.battle.net/download/getInstallerForGame?os=win&locale=enUS&version=LIVE&gameProgram=BATTLENET_APP", "c:\cloudygamer\downloads\battlenet.exe")
     & c:\cloudygamer\downloads\battlenet.exe --lang=english
-    sleep 20
+    sleep 25
     Stop-Process -Name "battlenet"
     & c:\cloudygamer\downloads\battlenet.exe --lang=english --bnetdir="c:\Program Files (x86)\Battle.net" | Out-Null
 
@@ -296,20 +306,25 @@ Function Write-Status {
 Function New-CloudyGamerInstall {
   Param([parameter(Mandatory=$true)] [String] $Password)
 
+  $IsAWS = Test-Path "\ProgramData\Amazon"
+
   # create cloudygamer dir for file storage and logging
   New-Item -ItemType directory -Path "c:\cloudygamer" -Force
   Write-Status "Hello! We'll be installing now."
 
-  # disable password complexity (so people can choose whatever password they want)
-  secedit /export /cfg "c:\secpol.cfg"
-  (Get-Content "c:\secpol.cfg").replace("PasswordComplexity = 1", "PasswordComplexity = 0") | Out-File "c:\secpol.cfg"
-  secedit /configure /db c:\windows\security\local.sdb /cfg "c:\secpol.cfg" /areas SECURITYPOLICY
-  Remove-Item -Force "c:\secpol.cfg" -Confirm:$false
+  # on aws we create a new user, not necessary on Azure since we know the password
+  if ($IsAWS) {
+    # disable password complexity (so people can choose whatever password they want)
+    secedit /export /cfg "c:\secpol.cfg"
+    (Get-Content "c:\secpol.cfg").replace("PasswordComplexity = 1", "PasswordComplexity = 0") | Out-File "c:\secpol.cfg"
+    secedit /configure /db c:\windows\security\local.sdb /cfg "c:\secpol.cfg" /areas SECURITYPOLICY
+    Remove-Item -Force "c:\secpol.cfg" -Confirm:$false
 
-  # create the cloudygamer user
-  $SecurePass = ConvertTo-SecureString $Password -AsPlainText -Force
-  New-LocalUser "cloudygamer" -Password $SecurePass -PasswordNeverExpires
-  Add-LocalGroupMember -Group "Administrators" -Member "cloudygamer"
+    # create the cloudygamer user
+    $SecurePass = ConvertTo-SecureString $Password -AsPlainText -Force
+    New-LocalUser "cloudygamer" -Password $SecurePass -PasswordNeverExpires
+    Add-LocalGroupMember -Group "Administrators" -Member "cloudygamer"
+  }
 
   # set up autologin
   Set-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" "AutoAdminLogon" -Value "1" -type String
