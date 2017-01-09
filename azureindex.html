@@ -48,14 +48,14 @@
     // const x = await fetch(`https://management.azure.com/subscriptions/${subscriptionId}/resourcegroups/${newResourceGroupName}?api-version=2016-09-01`, {method: 'PUT', headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"}, body: JSON.stringify( {location: "southcentralus"} )})
     // const result = await x.json()
 
+    // create the vm
     const template = await (await fetch("azuretemplate.json")).json()
     const parameters = await (await fetch("azuretemplateparams.json")).json()
+    parameters["adminPassword"] = "superSecretPassword123"
     const body = {"properties": {"template": template, "mode": "Incremental", "parameters": parameters}}
-
     const deploymentName = "cloudygamerdeployer"
     const x = await fetch(`https://management.azure.com/subscriptions/${subscriptionId}/resourcegroups/${resourceGroupName}/providers/Microsoft.Resources/deployments/${deploymentName}?api-version=2016-09-01`, {method: 'PUT', headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"}, body: JSON.stringify(body)})
 
     debugger
-
   }
 </script>

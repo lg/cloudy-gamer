@@ -1,7 +1,4 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
-    "contentVersion": "1.0.0.0",
-    "parameters": {
         "location": {
             "value": "southcentralus"
         },
@@ -15,13 +12,13 @@
             "value": "lgadmin"
         },
         "storageAccountName": {
-            "value": "cloudygamertestdisks347"
+            "value": "cloudygamertestdisks3471"
         },
         "virtualNetworkName": {
             "value": "cloudygamertest-vnet"
         },
         "networkInterfaceName": {
-            "value": "cloudygamertest787"
+            "value": "cloudygamertest7871"
         },
         "networkSecurityGroupName": {
             "value": "cloudygamertest-nsg"
@@ -47,5 +44,4 @@
         "publicIpAddressType": {
             "value": "Dynamic"
         }
-    }
 }
