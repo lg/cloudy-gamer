@@ -4,31 +4,58 @@
 <a href="#" onclick="test()">test</a>
 
 <script type="text/javascript">
-    var authContext = new AuthenticationContext({
-        tenant: "875677b9-62d0-4c8b-8702-0c73da92e1ad",     // aka directory id
-        clientId: "807443a9-5e5c-4055-a70f-41ee46a053f8",
-        endpoints: {'azuremanagement': 'https://management.azure.com/'}
-    });
+  const subscriptionId = "f8d9994d-4a00-47ff-88d1-2ae4455ee45a"
+  const resourceGroupLocation = "southcentralus"
+  const resourceGroupName = "lgcloudygamer"
 
-    if (authContext.isCallback(window.location.hash))
-        authContext.handleWindowCallback();
+  var authContext = new AuthenticationContext({
+    tenant: "875677b9-62d0-4c8b-8702-0c73da92e1ad",     // aka directory id
+    clientId: "807443a9-5e5c-4055-a70f-41ee46a053f8",
+    endpoints: {'azuremanagement': 'https://management.azure.com/'}
+  });
 
-    function login() {
-        authContext.login();
-    }
+  if (authContext.isCallback(window.location.hash))
+    authContext.handleWindowCallback();
 
-    function test() {
-        authContext.acquireToken("https://management.azure.com/", function(error, token) {
-            cont(token)
-        })
-    }
+  function login() {
+    authContext.login();
+  }
 
-    async function cont(token) {
-        var myHeaders = new Headers();
-        myHeaders.append("Authorization", `Bearer ${token}`);
+  function test() {
+    authContext.acquireToken("https://management.azure.com/", function(error, token) {
+      cont(token)
+    })
+  }
 
-        const x = await fetch("https://management.azure.com/subscriptions?api-version=2014-04-01", {method: 'GET', headers: myHeaders})
-        const result = await x.json()
-        debugger
-    }
+  async function cont(token) {
+    // var myHeaders = new Headers();
+    // myHeaders.append("Authorization", `Bearer ${token}`);
+
+    // // test that the API works
+    // const x = await fetch("https://management.azure.com/subscriptions?api-version=2014-04-01", {method: 'GET', headers: myHeaders})
+    // const result = await x.json()
+
+    // // list all resources in the subscription
+    // const x = await fetch(`https://management.azure.com/subscriptions/${subscriptionId}/resourcegroups?api-version=2016-09-01`, {method: 'GET', headers: myHeaders})
+    // const result = await x.json()
+
+    // // list all subscription datacenters
+    // const x = await fetch(`https://management.azure.com/subscriptions/${subscriptionId}/locations?api-version=2016-09-01`, {method: 'GET', headers: myHeaders})
+    // const result = await x.json()
+
+    // // create a resource group
+    // const newResourceGroupName = "lgcloudygamer4"
+    // const x = await fetch(`https://management.azure.com/subscriptions/${subscriptionId}/resourcegroups/${newResourceGroupName}?api-version=2016-09-01`, {method: 'PUT', headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"}, body: JSON.stringify( {location: "southcentralus"} )})
+    // const result = await x.json()
+
+    const template = await (await fetch("azuretemplate.json")).json()
+    const parameters = await (await fetch("azuretemplateparams.json")).json()
+    const body = {"properties": {"template": template, "mode": "Incremental", "parameters": parameters}}
+
+    const deploymentName = "cloudygamerdeployer"
+    const x = await fetch(`https://management.azure.com/subscriptions/${subscriptionId}/resourcegroups/${resourceGroupName}/providers/Microsoft.Resources/deployments/${deploymentName}?api-version=2016-09-01`, {method: 'PUT', headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"}, body: JSON.stringify(body)})
+
+    debugger
+
+  }
 </script>
