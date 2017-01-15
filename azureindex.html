@@ -48,33 +48,64 @@
     // const x = await fetch(`https://management.azure.com/subscriptions/${subscriptionId}/resourcegroups/${newResourceGroupName}?api-version=2016-09-01`, {method: 'PUT', headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"}, body: JSON.stringify( {location: "southcentralus"} )})
     // const result = await x.json()
 
-    // create the vm
-    const template = await (await fetch("azuretemplate.json")).json()
-    const parameters = {
-      "location": {"value": "southcentralus"},
-      "virtualMachineName": {"value": "cloudygamertest"},
-      "virtualMachineSize": {"value": "Standard_NV6"},
-      "adminUsername": {"value": "cloudygamer"},
-      "storageAccountName": {"value": "cloudygamertestdisks3471"},     // needs to be globally unique
-      "virtualNetworkName": {"value": "cloudygamertest-vnet"},
-      "networkInterfaceName": {"value": "cloudygamertest7871"},
-      "networkSecurityGroupName": {"value": "cloudygamertest-nsg"},
-      "adminPassword": {"value": "superSecretPassword123"},
-      "storageAccountType": {"value": "Standard_LRS"},
-      "addressPrefix": {"value": "10.0.0.0/24"},
-      "subnetName": {"value": "default"},
-      "subnetPrefix": {"value": "10.0.0.0/24"},
-      "publicIpAddressName": {"value": "cloudygamertest-ip"},
-      "publicIpAddressType": {"value": "Dynamic"}
+    // // create the vm
+    // const template = await (await fetch("azuretemplate.json")).json()
+    // const parameters = {
+    //   "location": {"value": "southcentralus"},
+    //   "virtualMachineName": {"value": "cloudygamertest"},
+    //   "virtualMachineSize": {"value": "Standard_NV6"},
+    //   "adminUsername": {"value": "cloudygamer"},
+    //   "storageAccountName": {"value": "cloudygamertestdisks1471"},     // needs to be globally unique
+    //   "virtualNetworkName": {"value": "cloudygamertest-vnet"},
+    //   "networkInterfaceName": {"value": "cloudygamertest7871"},
+    //   "networkSecurityGroupName": {"value": "cloudygamertest-nsg"},
+    //   "adminPassword": {"value": "superSecretPassword123"},
+    //   "storageAccountType": {"value": "Standard_LRS"},
+    //   "addressPrefix": {"value": "10.0.0.0/24"},
+    //   "subnetName": {"value": "default"},
+    //   "subnetPrefix": {"value": "10.0.0.0/24"},
+    //   "publicIpAddressName": {"value": "cloudygamertest-ip"},
+    //   "publicIpAddressType": {"value": "Dynamic"}
+    // }
+    // const body = {"properties": {"template": template, "mode": "Incremental", "parameters": parameters}}
+    // const deploymentName = "cloudygamerdeployer"
+    // const x = await fetch(`https://management.azure.com/subscriptions/${subscriptionId}/resourcegroups/${resourceGroupName}/providers/Microsoft.Resources/deployments/${deploymentName}?api-version=2016-09-01`, {method: 'PUT', headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"}, body: JSON.stringify(body)})
+    // const y = await x.json()
+    // if (y && y.error && y.error.message)
+    //   throw y.error.message + (y.error.details ? (" " + y.error.details[0].message) : "")
+    // const id = y.id    // /subscriptions/f8d9994d-4a00-47ff-88d1-2ae4455ee45a/resourceGroups/lgcloudygamer4/providers/Microsoft.Resources/deployments/cloudygamerdeployer
+
+    // // get status of deployment
+    // const deploymentName = "cloudygamerdeployer"
+    // for (let i = 0; i < 30; i++) {
+    //     const x = await fetch(`https://management.azure.com/subscriptions/${subscriptionId}/resourcegroups/${resourceGroupName}/providers/Microsoft.Resources/deployments/${deploymentName}?api-version=2016-09-01`, {method: 'GET', headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"}})
+    //     const y = await x.json()
+    //     if (y.properties.provisioningState !== "Running")
+    //         break
+    //     console.log(y.properties.provisioningState)      // will be "Running" until it completes when it'll be "Succeeded"
+    //     await new Promise(resolve => setTimeout(resolve, 30000))
+    // }
+    // console.log("done")
+
+    // run test command on machine
+    const vmName = "cloudygamertest"
+    const vmExtensionName = "test"
+
+    const body = {
+        location: "southcentralus",
+        properties: {
+            "publisher": "Microsoft.Compute",
+            "type": "CustomScriptExtension",
+            "typeHandlerVersion": "1.8",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+                "commandToExecute": "powershell ls c:/"
+            }
+        }
     }
 
-    const body = {"properties": {"template": template, "mode": "Incremental", "parameters": parameters}}
-    const deploymentName = "cloudygamerdeployer"
-    const x = await fetch(`https://management.azure.com/subscriptions/${subscriptionId}/resourcegroups/${resourceGroupName}/providers/Microsoft.Resources/deployments/${deploymentName}?api-version=2016-09-01`, {method: 'PUT', headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"}, body: JSON.stringify(body)})
+    const x = await fetch(`https://management.azure.com/subscriptions/${subscriptionId}/resourceGroups/${resourceGroupName}/providers/Microsoft.Compute/virtualMachines/${vmName}/extensions/${vmExtensionName}?api-version=2016-03-30`, {method: 'PUT', headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"}, body: JSON.stringify(body)})
     const y = await x.json()
-    if (y && y.error && y.error.message)
-      throw y.error.message + (y.error.details ? (" " + y.error.details[0].message) : "")
-
-    console.log("success")
+    debugger
   }
 </script>
