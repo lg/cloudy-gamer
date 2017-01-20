@@ -87,18 +87,7 @@ workflow Install-CloudyGamer {
   Restart-Computer -Force -Wait
 
   InlineScript {
-    Write-Status "Creating shortcuts and installing tooling"
-
-    # create shortcut to disconnect
-    $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut("$home\Desktop\Disconnect.lnk")
-    $Shortcut.TargetPath = "C:\Windows\System32\cmd.exe"
-    $Shortcut.Arguments = @'
-/c "for /F "tokens=1 delims=^> " %i in ('""%windir%\system32\qwinsta.exe" | "%windir%\system32\find.exe" /I "^>rdp-tcp#""') do "%windir%\system32\tscon.exe" %i /dest:console"
-'@
-    $Shortcut.Save()
-    $bytes = [System.IO.File]::ReadAllBytes("$home\Desktop\Disconnect.lnk")
-    $bytes[0x15] = $bytes[0x15] -bor 0x20
-    [System.IO.File]::WriteAllBytes("$home\Desktop\Disconnect.lnk", $bytes)
+    Write-Status "Creating shortcuts and installing TightVNC and other tooling"
 
     # create shortcut to warm c drive (if on AWS)
     if ($Using:IsAWS) {
@@ -127,6 +116,11 @@ workflow Install-CloudyGamer {
     Move-Item "c:\cloudygamer\downloads\DeviceManagement\Release" $PSHOME\Modules\DeviceManagement
     (Get-Content "$PSHOME\Modules\DeviceManagement\DeviceManagement.psd1").replace("PowerShellHostVersion = '3.0'", "PowerShellHostVersion = ''") | Out-File "$PSHOME\Modules\DeviceManagement\DeviceManagement.psd1"
     Import-Module DeviceManagement
+
+    # install tightvnc
+    (New-Object System.Net.WebClient).DownloadFile("http://www.tightvnc.com/download/2.8.5/tightvnc-2.8.5-gpl-setup-64bit.msi", "c:\cloudygamer\downloads\tightvnc.msi")
+    $psw = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\").DefaultPassword.substring(0, 8)
+    & msiexec /i c:\cloudygamer\downloads\tightvnc.msi /quiet /norestart ADDLOCAL="Server" SERVER_REGISTER_AS_SERVICE=1 SERVER_ADD_FIREWALL_EXCEPTION=1 SERVER_ALLOW_SAS=1 SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1 SET_PASSWORD=1 VALUE_OF_PASSWORD=$psw | Out-Null
   }
 
   InlineScript {
@@ -271,7 +265,7 @@ workflow Install-CloudyGamer {
 
     # create the task to restart steam (such that we're not stuck in services Session 0 desktop when launching)
     $action = New-ScheduledTaskAction -Execute "Powershell.exe" -Argument @'
--Command "Stop-Process -Name "Steam" -Force -ErrorAction SilentlyContinue ; & 'D:\Program Files (x86)\Steam\Steam.exe'"
+-Command "Stop-Process -Name "Steam" -Force -ErrorAction SilentlyContinue ; & 'C:\Program Files (x86)\Steam\Steam.exe'"
 '@
     Register-ScheduledTask -Action $action -Description "called by SSM to restart steam. necessary to avoid being stuck in Session 0 desktop." -Force -TaskName "CloudyGamer Restart Steam" -TaskPath "\"
   }
