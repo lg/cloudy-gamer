@@ -37,8 +37,10 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
 <details id="volume-config-panel">
   <summary>Volume configuration</summary>
   <label for="awsVolumeId">AWS Volume ID: </label><input type="text" id="awsVolumeId" value=""/><br/>
-  <button onclick="saveAndReloadCG()">save config</button><br/>
-  <label for="provision">new image with password: </label><input type="text" id="provision" value=""/>
+  <button onclick="saveAndReloadCG()">save config</button><br/><br/>
+  <label for="password">new image with password: </label><input type="text" id="password" value=""/>
+  <label for="size">size (GB): </label><input type="number" id="size" value="120" style='width:40px'/><br/>
+
   <button onclick="provisionNewImage()">provision</button>
   <button onclick="updateProvisionStatus()">check status</button>
   <button onclick="terminateProvisioning()">terminate</button>
@@ -69,6 +71,7 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
     bindLockr("awsIAMRoleName", "")
     bindLockr("awsRegionZone", "us-west-1c")
     bindLockr("awsVolumeId", "")
+    bindLockr("password", "")
     saveAndReloadCG()
 
     // default opened panel depends on what settings you have populated
@@ -139,9 +142,9 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
     volumeStatusEl.textContent = "(retrieving)"
     self.cg.getInstance().then(result => {
       self.cg.isInstanceOnline(result.InstanceId).then(isOnline => {
-        const rdpUrl = `rdp://full%20address=s:${result.PublicIpAddress}:3389&username=s:cloudygamer&desktopwidth=i:1024&desktopheight=i:768`
+        const vncUrl = `vnc://admin:${document.querySelector("#password").value}@${result.PublicIpAddress}`
 
-        instanceStatusEl.innerHTML = `running (${result.InstanceId}, <a href='${rdpUrl}'>${result.PublicIpAddress}</a>, ${isOnline ? "online" : "offline"})`
+        instanceStatusEl.innerHTML = `running (${result.InstanceId}, <a href='${vncUrl}'>${result.PublicIpAddress}</a>, ${isOnline ? "online" : "offline"})`
       })
     }).catch(_ => {
       instanceStatusEl.textContent = "not running"
@@ -157,7 +160,9 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
   }
 
   provisionNewImage = async function() {
-    const finalStatus = await self.cg.provisionNewImage(document.querySelector("#provision").value)
+    const password = document.querySelector("#password").value
+    const size = parseInt(document.querySelector("#size").value)
+    const finalStatus = await self.cg.provisionNewImage(password, size)
     if (finalStatus.success) {
       document.getElementById("awsVolumeId").value = finalStatus.volumeId
       saveAndReloadCG()
@@ -167,7 +172,7 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
   }
 
   updateProvisionStatus = async function() {
-    await self.cg.checkProvisionStatus(document.querySelector("#provision").value)
+    await self.cg.checkProvisionStatus(document.querySelector("#password").value)
   }
 
   console.logCopy = console.log.bind(console)

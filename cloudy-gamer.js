@@ -94,7 +94,15 @@ class CloudyGamer {
     const securityGroup = await this.ec2.createSecurityGroup({GroupName: SECURITY_GROUP_NAME, Description: "cloudygamer", VpcId: vpc.Vpc.VpcId}).promise()
 
     console.log("  Adding firewall rules to Security Group...")
-    await this.ec2.authorizeSecurityGroupIngress({GroupId: securityGroup.GroupId, IpPermissions: [{IpProtocol: "-1", IpRanges: [{CidrIp: "0.0.0.0/0"}]}]}).promise()
+    await this.ec2.authorizeSecurityGroupIngress({
+      GroupId: securityGroup.GroupId,
+      IpPermissions: [
+        {FromPort: 3389, IpProtocol: "tcp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 3389},   // RDP
+        {FromPort: 5900, IpProtocol: "tcp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 5900},   // VNC
+        {FromPort: 9993, IpProtocol: "udp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 9993},   // Zerotier
+        {FromPort: -1, IpProtocol: "icmp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: -1}       // Ping
+      ]
+    }).promise()
 
     console.log("  Tagging all new resources...")
     await this.ec2.createTags({
@@ -114,9 +122,10 @@ class CloudyGamer {
     await this.ec2.authorizeSecurityGroupIngress({
       GroupId: securityGroup.GroupId,
       IpPermissions: [
-        {FromPort: 0, IpProtocol: "tcp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 65535},
-        {FromPort: 0, IpProtocol: "udp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 65535},
-        {FromPort: -1, IpProtocol: "icmp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: -1}
+        {FromPort: 3389, IpProtocol: "tcp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 3389},   // RDP
+        {FromPort: 5900, IpProtocol: "tcp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 5900},   // VNC
+        {FromPort: 9993, IpProtocol: "udp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 9993},   // Zerotier
+        {FromPort: -1, IpProtocol: "icmp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: -1}       // Ping
       ]
     }).promise()
 
@@ -196,17 +205,18 @@ class CloudyGamer {
     return lowest
   }
 
-  async startSpotInstance(instanceTypes, amiId, attachVolumeId, keepEBSVolume) {
+  async startSpotInstance(instanceTypes, amiId, attachVolumeId, newEBSVolumeSize=0) {
     await this.discoverAndCreateResources()
     const lowest = await this.findLowestPrice(instanceTypes)
     amiId = amiId || this.bootAMI
 
     let blockDeviceMappings = null
-    if (keepEBSVolume) {
+    if (newEBSVolumeSize > 0) {
       console.log("Getting AMI details for EBS details...")
       const image = await this.ec2.describeImages({ImageIds: [amiId]}).promise()
       blockDeviceMappings = image.Images[0].BlockDeviceMappings
       blockDeviceMappings[0].Ebs.DeleteOnTermination = false
+      blockDeviceMappings[0].Ebs.VolumeSize = newEBSVolumeSize
     }
 
     console.log("Requesting spot instance...")
@@ -277,11 +287,11 @@ class CloudyGamer {
   }
 
   async startInstance() {
-    await this.startSpotInstance(["Linux/UNIX", "Linux/UNIX (Amazon VPC)"], null, this.config.awsVolumeId, false)
+    await this.startSpotInstance(["Linux/UNIX", "Linux/UNIX (Amazon VPC)"], null, this.config.awsVolumeId, 0)
     console.log("Ready!")
   }
 
-  async provisionNewImage(userPassword) {
+  async provisionNewImage(userPassword, volumeSize) {
     if (!userPassword)
       throw new Error("You must specify a password for the cloudygamer user")
     if (this.config.awsVolumeId)
@@ -293,7 +303,7 @@ class CloudyGamer {
     ]}).promise()
     const newestAMI = images.Images.sort((a, b) => { return new Date(a.CreationDate) < new Date(b.CreationDate) })[0]
 
-    const instanceId = await this.startSpotInstance(["Windows", "Windows (Amazon VPC)"], newestAMI.ImageId, null, true)
+    const instanceId = await this.startSpotInstance(["Windows", "Windows (Amazon VPC)"], newestAMI.ImageId, null, volumeSize)
     const volumeId = (await this.ec2.describeVolumes({Filters: [{Name: "attachment.instance-id", Values: [instanceId]}]}).promise()).Volumes[0].VolumeId
 
     console.log(`Volume ID of instance is: ${volumeId}. Tagging it...`)
