@@ -89,6 +89,17 @@ workflow Install-CloudyGamer {
   InlineScript {
     Write-Status "Creating shortcuts and installing TightVNC and other tooling"
 
+    # create shortcut to disconnect
+    $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut("$home\Desktop\Disconnect.lnk")
+    $Shortcut.TargetPath = "C:\Windows\System32\cmd.exe"
+    $Shortcut.Arguments = @'
+/c "for /F "tokens=1 delims=^> " %i in ('""%windir%\system32\qwinsta.exe" | "%windir%\system32\find.exe" /I "^>rdp-tcp#""') do "%windir%\system32\tscon.exe" %i /dest:console"
+'@
+    $Shortcut.Save()
+    $bytes = [System.IO.File]::ReadAllBytes("$home\Desktop\Disconnect.lnk")
+    $bytes[0x15] = $bytes[0x15] -bor 0x20
+    [System.IO.File]::WriteAllBytes("$home\Desktop\Disconnect.lnk", $bytes)
+
     # create shortcut to warm c drive (if on AWS)
     if ($Using:IsAWS) {
       (New-Object System.Net.WebClient).DownloadFile("http://www.chrysocome.net/downloads/dd-0.6beta3.zip", "c:\cloudygamer\downloads\dd.zip")

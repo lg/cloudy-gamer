@@ -143,8 +143,9 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
     self.cg.getInstance().then(result => {
       self.cg.isInstanceOnline(result.InstanceId).then(isOnline => {
         const vncUrl = `vnc://admin:${document.querySelector("#password").value}@${result.PublicIpAddress}`
+        const rdpUrl = `rdp://full%20address=s:${result.PublicIpAddress}:3389&username=s:cloudygamer&desktopwidth=i:1024&desktopheight=i:768`
 
-        instanceStatusEl.innerHTML = `running (${result.InstanceId}, <a href='${vncUrl}'>${result.PublicIpAddress}</a>, ${isOnline ? "online" : "offline"})`
+        instanceStatusEl.innerHTML = `running (${result.InstanceId}, ${result.PublicIpAddress}, ${isOnline ? "online" : "offline"}), <a href='${vncUrl}'>VNC</a> <a href='${rdpUrl}'>RDP</a>`
       })
     }).catch(_ => {
       instanceStatusEl.textContent = "not running"
