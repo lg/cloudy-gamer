@@ -11,18 +11,16 @@
   <script src='cloudy-gamer.js' data-just-in-time-babel></script>
 
   <style>
-    details.mainconfig {border: 1px solid black; padding: 5px; width: 600px; margin-bottom: 5px}
-    details[open].mainconfig > summary {margin-bottom: 5px}
+    details {border: 1px solid black; padding: 5px; width: 600px; margin-bottom: 5px}
+    details[open] > summary {margin-bottom: 5px}
     summary {cursor: pointer}
     summary:focus {outline: none}
-
-    details.serviceconfig {padding-left: 10px}
   </style>
 </head>
 
 cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and help</a><br/><br/>
 
-<details class="mainconfig" id="aws-config-panel">
+<details id="aws-config-panel">
   <summary>AWS configuration</summary>
   <label for="awsAccessKey">AWS Access Key: </label><input type="text" id="awsAccessKey" value=""/><br/>
   <label for="awsSecretAccessKey">AWS Secret Access Key: </label><input type="text" id="awsSecretAccessKey" value=""/><br/>
@@ -36,11 +34,11 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
   </p>
 </details>
 
-<details class="mainconfig" id="volume-config-panel">
+<details id="volume-config-panel">
   <summary>Volume configuration</summary>
   <label for="awsVolumeId">AWS Volume ID: </label><input type="text" id="awsVolumeId" value=""/><br/>
   <button onclick="saveAndReloadCG()">save config</button><br/><br/>
-  <label for="password">new image with password: </label><input type="password" id="password" value=""/>
+  <label for="password">new image with password: </label><input type="text" id="password" value=""/>
   <label for="size">size (GB): </label><input type="number" id="size" value="120" style='width:40px'/><br/>
 
   <button onclick="provisionNewImage()">provision</button>
@@ -48,31 +46,15 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
   <button onclick="terminateProvisioning()">terminate</button>
 </details>
 
-<details class="mainconfig" id="control-panel">
+<details id="control-panel">
   <summary>CloudyGamer control</summary>
   instance status: <span id='instance-status'>(unknown)</span><br/>
   volume status: <span id='volume-status'>(unknown)</span><br/>
-  <button onclick="updateStatuses()">update instance status</button><button onclick="startInstance()">start instance</button>
-  <button onclick="stopInstance()">stop instance</button><br/><br/>
-
-  <button onclick="updateServicesStatus()">update services status</button><br/>
-  <details class="serviceconfig">
-    <summary>steam: <span id='steam-status'>(not logged in)</span></summary>
-    <label for="steamUsername">username: </label><input type="text" id="steamUsername" value=""/><br/>
-    <label for="steamPassword">password: </label><input type="password" id="steamPassword" value=""/><br/>
-    <label for="steamAuthCode">authcode: </label><input type="text" id="steamAuthCode" value=""/><br/>
-    <button onclick="setSteamAccount()">set account</button>
-    <button onclick="cg.restartSteam()">restart steam</button><br/>
-    <br/>
-
-  </details>
-  <details class="serviceconfig">
-    <summary>zerotier: <span id='zerotier-status'>(no network)</span></summary>
-    <label for="zerotierNetwork">network id: </label><input type="text" id="zerotierNetwork" value=""/><br/>
-    <button onclick="setZerotierNetwork()">set network</button>
-  </details>
-
-  <!--<button onclick="cg.restartSteam()">restart steam</button><br/>-->
+  <button onclick="updateStatuses()">update status</button><br/>
+  <br/>
+  <button onclick="startInstance()">start instance</button>
+  <button onclick="stopInstance()">stop instance</button><br/>
+  <button onclick="cg.restartSteam()">restart steam</button><br/>
   <br/>
 </details>
 
@@ -103,7 +85,7 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
     }
 
     // only one panel should be openable at once
-    for (const panel of document.querySelectorAll("details.mainconfig")) {
+    for (const panel of document.querySelectorAll("details")) {
       panel.ontoggle = (event) => {
         if (document.getElementById(event.srcElement.id).open) {
           if ((toClose = document.querySelector(`details:not(#${event.srcElement.id})[open]`)))
@@ -135,18 +117,6 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
 
   testMainConfig = async function() {
     await cg.discoverAndCreateResources()
-  }
-
-  updateServicesStatus = async function() {
-    throw new Error("Not implemented yet")
-  }
-
-  setSteamAccount = async function() {
-    throw new Error("Not implemented yet")
-  }
-
-  setZerotierNetwork = async function() {
-    throw new Error("Not implemented yet")
   }
 
   startInstance = async function() {
