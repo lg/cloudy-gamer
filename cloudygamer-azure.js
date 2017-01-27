@@ -32,7 +32,18 @@ class CloudyGamerAzure {
     if (!token) {
       console.log("Getting adal token...")
       token = await new Promise((resolve, reject) => {
-        this.adal.acquireToken("https://management.azure.com/", (error, token) => { if (error) { debugger ; reject(error) } else { resolve(token) } })
+        const adal = this.adal
+        this.adal.acquireToken("https://management.azure.com/", (error, token) => {
+          if (!error) {
+            resolve(token)
+          } else {
+            if (error.includes("AADSTS50058")) {
+              console.log("You seem logged out, logging back in...")
+              adal.login()
+            }
+            reject(error)
+          }
+        })
       })
     }
 
@@ -82,11 +93,11 @@ class CloudyGamerAzure {
   async createVM(adminPassword) {
     console.log(`Checking if resource group ${RESOURCE_GROUP_NAME} exists...`)
     if (!(await this.doesResourceGroupExist())) {
-      console.log(`Not found. Creating the resource group...`)
+      console.log(`Creating the resource group...`)
       await this.azureRequest("PUT", "/subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}?api-version=2016-09-01", {location: this.config.location})
     }
 
-    // create the vm
+    // Create the vm
     console.log(`Creating ${RESOURCE_NAME_PREFIX} resources and vm...`)
     const parameters = {
       "location": {"value": this.config.location},
@@ -114,7 +125,7 @@ class CloudyGamerAzure {
     if (deployment && deployment.error)
       throw new Error(this.getAzurePrettyError(deployment.error))
 
-    // wait for deployment to complete (15 mins)
+    // Wait for deployment to complete (15 mins)
     console.log("Waiting for deployment to complete...")
     const lastDepCheck = await this.azureWait(`${deployment.id}?api-version=2016-09-01`, 6 * 15, 10000, (val) => {
       return !["Running", "Accepted"].includes(val.properties.provisioningState)
@@ -125,30 +136,35 @@ class CloudyGamerAzure {
   }
 
   async runCommand(command) {
-    // use Extensions to run a command
+    // Use Extensions to run a command
     const vmExtensionName = "runcommand"
     const body = {
-        location: "southcentralus",
-        properties: {
-            "publisher": "Microsoft.Compute",
-            "type": "CustomScriptExtension",
-            "typeHandlerVersion": "1.8",
-            "autoUpgradeMinorVersion": true,
-            "settings": {
-                "commandToExecute": command
-            }
+      location: "southcentralus",
+      properties: {
+        "publisher": "Microsoft.Compute",
+        "type": "CustomScriptExtension",
+        "typeHandlerVersion": "1.8",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "commandToExecute": command
         }
+      }
     }
     const extensionCreation = await this.azureRequest("PUT", `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}/extensions/${vmExtensionName}?api-version=2016-03-30`, body)
 
-    // wait for a result from the command (15 mins)
+    // Wait for a result from the command (15 mins)
     console.log("Waiting for command to complete...")
-    const lastCheck = await this.azureWait(`${extensionCreation.id}?api-version=2016-03-30`, 6 * 15, 1000, (val) => {
+    const lastCheck = await this.azureWait(`${extensionCreation.id}?api-version=2016-03-30&$expand=instanceView`, 6 * 15, 1000, (val) => {
       return !["Creating"].includes(val.properties.provisioningState)
     })
 
     if (lastCheck.properties.error)
      throw new Error(this.getAzurePrettyError(lastCheck.properties.error))
+
+    // Read the result
+    //const result = await this.azureRequest("GET", `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}?api-version=2016-03-30`)
+
+    // GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}?api-version=2016-03-30[&$expand]
 
     debugger
 
@@ -166,7 +182,8 @@ class CloudyGamerAzure {
 
   async test() {
     console.log("test starting")
-    const res = await this.runCommand("powershell 'sleep 10000 ; ls c:/'")
+    //const res = await this.createVM("superSecret123Pass")
+    const res = await this.runCommand("powershell 'ls c:/'")
     console.log(`test done`)
   }
 }
