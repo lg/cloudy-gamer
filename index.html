@@ -5,10 +5,9 @@
   <script src="just-in-time-babel.js"></script>
 
   <script>
-    if (!window.fetch) { document.write("<script src='https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.min.js'><\/script>") }
-    JustInTimeBabel.beginSilencingErrors()
+    if (!window.fetch) { console.log("Function window.fetch missing. Loading it."); document.write("<script src='https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.min.js'><\/script>") }
   </script>
-  <script src='cloudy-gamer.js' data-just-in-time-babel></script>
+  <script src='cloudy-gamer.js'></script>
 
   <style>
     details {border: 1px solid black; padding: 5px; width: 600px; margin-bottom: 5px}
@@ -66,9 +65,7 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
 
 <span id='cur-status' style='font-size:75%'>&nbsp;</span><br/>
 
-<script data-just-in-time-babel>
-  (async function(){}) /* JustInTimeBabel will re-run this script */
-
+<script>
   self.config = {}
 
   start = () => {
@@ -190,5 +187,3 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
 
   start()
 </script>
-
-<script>JustInTimeBabel.itsTime()</script>
