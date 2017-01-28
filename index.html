@@ -22,40 +22,46 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
 
 <details id="aws-config-panel">
   <summary>AWS configuration</summary>
-  <label for="awsAccessKey">AWS Access Key: </label><input type="text" id="awsAccessKey" value=""/><br/>
-  <label for="awsSecretAccessKey">AWS Secret Access Key: </label><input type="text" id="awsSecretAccessKey" value=""/><br/>
-  <label for="awsIAMRoleName">AWS EC2 IAM Role Name: </label><input type="text" id="awsIAMRoleName" value=""/><br/>
-  <label for="awsRegionZone">AWS Region Zone: </label><input type="text" id="awsRegionZone" value=""/><br/>
-  <button onclick="saveAndReloadCG()">save config</button>
-  <button onclick="testMainConfig()">test/prep</button>
-  <p style='font-size:50%'>
-    Note 1: Use <a href='user-policy.txt' target='_blank'>this</a> policy for your AWS user<br/>
-    Note 2: Your awsIAMRoleName needs at least the AmazonEC2RoleforSSM policy attached to it</a>
-  </p>
+  <div>
+    <label for="awsAccessKey">AWS Access Key: </label><input type="text" id="awsAccessKey" value=""/><br/>
+    <label for="awsSecretAccessKey">AWS Secret Access Key: </label><input type="text" id="awsSecretAccessKey" value=""/><br/>
+    <label for="awsIAMRoleName">AWS EC2 IAM Role Name: </label><input type="text" id="awsIAMRoleName" value=""/><br/>
+    <label for="awsRegionZone">AWS Region Zone: </label><input type="text" id="awsRegionZone" value=""/><br/>
+    <button onclick="saveAndReloadCG()">save config</button>
+    <button onclick="testMainConfig()">test/prep</button>
+    <p style='font-size:50%'>
+      Note 1: Use <a href='user-policy.txt' target='_blank'>this</a> policy for your AWS user<br/>
+      Note 2: Your awsIAMRoleName needs at least the AmazonEC2RoleforSSM policy attached to it</a>
+    </p>
+  </div>
 </details>
 
 <details id="volume-config-panel">
   <summary>Volume configuration</summary>
-  <label for="awsVolumeId">AWS Volume ID: </label><input type="text" id="awsVolumeId" value=""/><br/>
-  <button onclick="saveAndReloadCG()">save config</button><br/><br/>
-  <label for="password">new image with password: </label><input type="text" id="password" value=""/>
-  <label for="size">size (GB): </label><input type="number" id="size" value="120" style='width:40px'/><br/>
+  <div>
+    <label for="awsVolumeId">AWS Volume ID: </label><input type="text" id="awsVolumeId" value=""/><br/>
+    <button onclick="saveAndReloadCG()">save config</button><br/><br/>
+    <label for="password">new image with password: </label><input type="text" id="password" value=""/>
+    <label for="size">size (GB): </label><input type="number" id="size" value="120" style='width:40px'/><br/>
 
-  <button onclick="provisionNewImage()">provision</button>
-  <button onclick="updateProvisionStatus()">check status</button>
-  <button onclick="terminateProvisioning()">terminate</button>
+    <button onclick="provisionNewImage()">provision</button>
+    <button onclick="updateProvisionStatus()">check status</button>
+    <button onclick="terminateProvisioning()">terminate</button>
+  </div>
 </details>
 
 <details id="control-panel">
   <summary>CloudyGamer control</summary>
-  instance status: <span id='instance-status'>(unknown)</span><br/>
-  volume status: <span id='volume-status'>(unknown)</span><br/>
-  <button onclick="updateStatuses()">update status</button><br/>
-  <br/>
-  <button onclick="startInstance()">start instance</button>
-  <button onclick="stopInstance()">stop instance</button><br/>
-  <button onclick="cg.restartSteam()">restart steam</button><br/>
-  <br/>
+  <div>
+    instance status: <span id='instance-status'>(unknown)</span><br/>
+    volume status: <span id='volume-status'>(unknown)</span><br/>
+    <button onclick="updateStatuses()">update status</button><br/>
+    <br/>
+    <button onclick="startInstance()">start instance</button>
+    <button onclick="stopInstance()">stop instance</button><br/>
+    <button onclick="cg.restartSteam()">restart steam</button><br/>
+    <br/>
+  </div>
 </details>
 
 <span id='cur-status' style='font-size:75%'>&nbsp;</span><br/>
