@@ -1,4 +1,17 @@
 // JustInTimeBabel by Larry Gadea
+// Use ES2017 async functions on browsers that don't support it (like Safari)
+//
+// Example usage:
+//
+// <script src='just-in-time-babel.js'></script>
+// <script>
+//   async function pong() {
+//     await new Promise(resolve => setTimeout(resolve, 1000))
+//     console.log("pong!")
+//   }
+//   console.log("ping!")
+//   pong()
+// </script>
 
 window.JustInTimeBabel = () => {}
 
