@@ -141,6 +141,10 @@ workflow Install-CloudyGamer {
     if ($Using:IsAWS) {
       Remove-Item "$home\Desktop\EC2 Feedback.website" -ErrorAction SilentlyContinue
       Remove-Item "$home\Desktop\EC2 Microsoft Windows Guide.website" -ErrorAction SilentlyContinue
+
+      # provision ephemeral storage as Z:
+      '{ "driveLetterMapping": [ { "volumeName": "Temporary Storage 0", "driveLetter": "Z" } ] }' > c:\ProgramData\Amazon\EC2-Windows\Launch\Config\DriveLetterMappingConfig.json
+      c:\ProgramData\Amazon\EC2-Windows\Launch\Scripts\InitializeDisks.ps1 -Schedule
     }
 
     # show file extensions, hidden items and disable item checkboxes
