@@ -145,22 +145,8 @@ workflow Install-CloudyGamer {
 
     # provision ephemeral storage as Z:
     if ($Using:IsAWS) {
-        Set-Variable ec2LaunchPath -Option Constant -Scope Local -Value (Join-Path $env:ProgramData -ChildPath "Amazon\EC2-Windows\Launch")
-        Set-Variable scriptPath -Option Constant -Scope Local -Value (Join-Path $ec2LaunchPath -ChildPath "Scripts\InitializeDisks.ps1")
-
-        if ($scriptPath) {
-          # Configure drive letter mapping
-          Set-Variable configPath -Option Constant -Scope Local -Value (Join-Path $ec2LaunchPath -ChildPath "Config\DriveLetterMappingConfig.json")
-          '{ "driveLetterMapping": [ { "volumeName": "Temporary Storage 0", "driveLetter": "Z" } ] }' | Out-File $configPath
-
-          # Import Ec2Launch module to prepare to use helper functions.
-          Set-Variable modulePath -Option Constant -Scope Local -Value (Join-Path $ec2LaunchPath -ChildPath "Module\Ec2Launch.psd1")
-          Import-Module $modulePath
-
-          # Schedule for startup
-          Set-Variable scheduleName -Option Constant -Scope Local -Value "Disk Initialization"
-          Register-ScriptScheduler -ScriptPath $scriptPath -ScheduleName $scheduleName
-        }
+        '{ "driveLetterMapping": [ { "volumeName": "Temporary Storage 0", "driveLetter": "Z" } ] }' > c:\ProgramData\Amazon\EC2-Windows\Launch\Config\DriveLetterMappingConfig.json
+        c:\ProgramData\Amazon\EC2-Windows\Launch\Scripts\InitializeDisks.ps1 -Schedule
     }
 
     # show file extensions, hidden items and disable item checkboxes
