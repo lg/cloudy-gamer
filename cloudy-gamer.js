@@ -153,6 +153,10 @@ class CloudyGamer {
     }
     this.vpcSubnetId = subnets.Subnets[0].SubnetId
 
+    console.log("Checking if account supports EC2-Classic...")
+    const accountAttributes = await this.ec2.describeAccountAttributes({}).promise()
+    const ec2ClassicSupported = accountAttributes.AccountAttributes.find(item => item.AttributeName === "supported-platforms").AttributeValues.find(item => item.AttributeValue === "EC2")
+
     console.log("Retrieving VPC and non-VPC Security Groups...")
     const groups = await this.ec2.describeSecurityGroups({Filters: [{Name: "group-name", Values: [SECURITY_GROUP_NAME]}]}).promise()
     const vpcSecurityGroup = groups.SecurityGroups.find(group => group.VpcId && group.VpcId === vpcId)
@@ -162,7 +166,8 @@ class CloudyGamer {
       throw new Error("Unable to find the VPC Security Group. For now, delete the cloudygamer VPC manually using the AWS Console (if it even exists) and retry.")
     }
     this.vpcSecurityGroupId = vpcSecurityGroup.GroupId
-    this.securityGroupId = securityGroup ? securityGroup.GroupId : await this.createSecurityGroupResource()
+    if (ec2ClassicSupported)
+      this.securityGroupId = securityGroup ? securityGroup.GroupId : await this.createSecurityGroupResource()
     console.log("Seems good!")
   }
 
@@ -205,6 +210,11 @@ class CloudyGamer {
 
   async startSpotInstance(instanceTypes, amiId, attachVolumeId, newEBSVolumeSize=0) {
     await this.discoverAndCreateResources()
+
+    // Filter out non-VPC instances if there's no non-VPC security group
+    if (!this.securityGroupId)
+      instanceTypes = instanceTypes.filter(item => item.includes("VPC"))
+
     const lowest = await this.findLowestPrice(instanceTypes)
     amiId = amiId || this.bootAMI
 
