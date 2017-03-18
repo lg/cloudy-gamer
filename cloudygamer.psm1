@@ -143,6 +143,12 @@ workflow Install-CloudyGamer {
       Remove-Item "$home\Desktop\EC2 Microsoft Windows Guide.website" -ErrorAction SilentlyContinue
     }
 
+    # provision ephemeral storage as Z:
+    if ($Using:IsAWS) {
+      '{ "driveLetterMapping": [ { "volumeName": "Temporary Storage 0", "driveLetter": "Z" } ] }' > c:\ProgramData\Amazon\EC2-Windows\Launch\Config\DriveLetterMappingConfig.json
+      c:\ProgramData\Amazon\EC2-Windows\Launch\Scripts\InitializeDisks.ps1 -Schedule
+    }
+
     # show file extensions, hidden items and disable item checkboxes
     $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
     Set-ItemProperty $key HideFileExt 0
