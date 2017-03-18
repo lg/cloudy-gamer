@@ -32,7 +32,6 @@ class CloudyGamerAzure {
     if (!token) {
       console.log("Getting adal token...")
       token = await new Promise((resolve, reject) => {
-<<<<<<< HEAD
         const adal = this.adal
         this.adal.acquireToken("https://management.azure.com/", (error, token) => {
           if (!error) {
@@ -45,9 +44,6 @@ class CloudyGamerAzure {
             reject(error)
           }
         })
-=======
-        this.adal.acquireToken("https://management.azure.com/", (error, token) => { if (error) { debugger ; reject(error) } else { resolve(token) } })
->>>>>>> parent of ddb0524... removed azure items from master, still available in azure branch
       })
     }
 
@@ -97,19 +93,11 @@ class CloudyGamerAzure {
   async createVM(adminPassword) {
     console.log(`Checking if resource group ${RESOURCE_GROUP_NAME} exists...`)
     if (!(await this.doesResourceGroupExist())) {
-<<<<<<< HEAD
       console.log(`Creating the resource group...`)
       await this.azureRequest("PUT", "/subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}?api-version=2016-09-01", {location: this.config.location})
     }
 
     // Create the vm
-=======
-      console.log(`Not found. Creating the resource group...`)
-      await this.azureRequest("PUT", "/subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}?api-version=2016-09-01", {location: this.config.location})
-    }
-
-    // create the vm
->>>>>>> parent of ddb0524... removed azure items from master, still available in azure branch
     console.log(`Creating ${RESOURCE_NAME_PREFIX} resources and vm...`)
     const parameters = {
       "location": {"value": this.config.location},
@@ -137,11 +125,7 @@ class CloudyGamerAzure {
     if (deployment && deployment.error)
       throw new Error(this.getAzurePrettyError(deployment.error))
 
-<<<<<<< HEAD
     // Wait for deployment to complete (15 mins)
-=======
-    // wait for deployment to complete (15 mins)
->>>>>>> parent of ddb0524... removed azure items from master, still available in azure branch
     console.log("Waiting for deployment to complete...")
     const lastDepCheck = await this.azureWait(`${deployment.id}?api-version=2016-09-01`, 6 * 15, 10000, (val) => {
       return !["Running", "Accepted"].includes(val.properties.provisioningState)
@@ -152,7 +136,8 @@ class CloudyGamerAzure {
   }
 
   async runCommand(command) {
-<<<<<<< HEAD
+    console.log("running command")
+
     // Use Extensions to run a command
     const vmExtensionName = "runcommand"
     const body = {
@@ -170,47 +155,16 @@ class CloudyGamerAzure {
     const extensionCreation = await this.azureRequest("PUT", `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}/extensions/${vmExtensionName}?api-version=2016-03-30`, body)
 
     // Wait for a result from the command (15 mins)
-    console.log("Waiting for command to complete...")
-    const lastCheck = await this.azureWait(`${extensionCreation.id}?api-version=2016-03-30&$expand=instanceView`, 6 * 15, 1000, (val) => {
-=======
-    // use Extensions to run a command
-    const vmExtensionName = "runcommand"
-    const body = {
-        location: "southcentralus",
-        properties: {
-            "publisher": "Microsoft.Compute",
-            "type": "CustomScriptExtension",
-            "typeHandlerVersion": "1.8",
-            "autoUpgradeMinorVersion": true,
-            "settings": {
-                "commandToExecute": command
-            }
-        }
-    }
-    const extensionCreation = await this.azureRequest("PUT", `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}/extensions/${vmExtensionName}?api-version=2016-03-30`, body)
-
-    // wait for a result from the command (15 mins)
-    console.log("Waiting for command to complete...")
-    const lastCheck = await this.azureWait(`${extensionCreation.id}?api-version=2016-03-30`, 6 * 15, 1000, (val) => {
->>>>>>> parent of ddb0524... removed azure items from master, still available in azure branch
-      return !["Creating"].includes(val.properties.provisioningState)
+    const lastCheck = await this.azureWait(`${extensionCreation.id}?api-version=2016-03-30&$expand=instanceView`, 200, 2000, (val) => {
+      return !["Creating", "Updating"].includes(val.properties.provisioningState)
     })
 
     if (lastCheck.properties.error)
-     throw new Error(this.getAzurePrettyError(lastCheck.properties.error))
+      throw new Error(this.getAzurePrettyError(lastCheck.properties.error))
 
-<<<<<<< HEAD
-    // Read the result
-    //const result = await this.azureRequest("GET", `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}?api-version=2016-03-30`)
+    // TODO: delete the command"
 
-    // GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}?api-version=2016-03-30[&$expand]
-
-=======
->>>>>>> parent of ddb0524... removed azure items from master, still available in azure branch
-    debugger
-
-    // TODO: command still needs to be deleted after running (or reuse)
-    // TODO: return result
+    return lastCheck.properties.instanceView.substatuses[0].message || lastCheck.properties.instanceView.substatuses[1].message
   }
 
   async login() {
@@ -222,13 +176,9 @@ class CloudyGamerAzure {
   }
 
   async test() {
-    console.log("test starting")
-<<<<<<< HEAD
-    //const res = await this.createVM("superSecret123Pass")
-    const res = await this.runCommand("powershell 'ls c:/'")
-=======
-    const res = await this.runCommand("powershell 'sleep 10000 ; ls c:/'")
->>>>>>> parent of ddb0524... removed azure items from master, still available in azure branch
-    console.log(`test done`)
+    // console.log("test starting")
+    // //const res = await this.createVM("superSecret123Pass")
+    // const res = await this.runCommand("powershell 'ls c:/'")
+    // console.log(`test done`)
   }
 }
