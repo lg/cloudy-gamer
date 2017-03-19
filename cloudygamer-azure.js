@@ -22,7 +22,7 @@ class CloudyGamerAzure {
       this.adal.handleWindowCallback();
   }
 
-  async azureRequest(method, resource, body=null) {
+  async azureRequest(method, resource, body=null, parseJSON=true) {
     if (!this.adal.getCachedUser()) {
       throw new Error("Not logged into Azure")
     }
@@ -40,6 +40,8 @@ class CloudyGamerAzure {
             if (error.includes("AADSTS50058")) {
               console.log("You seem logged out, logging back in...")
               adal.login()
+
+              // TODO: needs to repeat the last call
             }
             reject(error)
           }
@@ -54,8 +56,14 @@ class CloudyGamerAzure {
 
     resource = resource.replace("{subscriptionId}", this.subscriptionId)
     resource = resource.replace("{resourceGroupName}", RESOURCE_GROUP_NAME)
+    resource = resource.replace("{resourceGroup}", RESOURCE_GROUP_NAME)
+    resource = resource.replace("{vm}", VM_NAME)
 
     const req = await fetch(`https://management.azure.com${resource}`, {method: method, headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"}, body: body ? JSON.stringify(body) : null})
+
+    if (!parseJSON)
+      return await req.text()
+
     const val = await req.json()
     return val.value || val
   }
@@ -136,10 +144,8 @@ class CloudyGamerAzure {
   }
 
   async runCommand(command) {
-    console.log("running command")
-
     // Use Extensions to run a command
-    const vmExtensionName = "runcommand"
+    const vmExtensionName = `runcommand${Math.round(Math.random() * 10000)}`
     const body = {
       location: "southcentralus",
       properties: {
@@ -155,16 +161,63 @@ class CloudyGamerAzure {
     const extensionCreation = await this.azureRequest("PUT", `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}/extensions/${vmExtensionName}?api-version=2016-03-30`, body)
 
     // Wait for a result from the command (15 mins)
-    const lastCheck = await this.azureWait(`${extensionCreation.id}?api-version=2016-03-30&$expand=instanceView`, 200, 2000, (val) => {
+    const lastCheck = await this.azureWait(`${extensionCreation.id}?api-version=2016-03-30&$expand=instanceView`, 50, 5000, (val) => {
       return !["Creating", "Updating"].includes(val.properties.provisioningState)
     })
 
     if (lastCheck.properties.error)
       throw new Error(this.getAzurePrettyError(lastCheck.properties.error))
 
-    // TODO: delete the command"
+    // Azure creates a new command extension
+    await this.azureRequest("DELETE", `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}/extensions/${vmExtensionName}?api-version=2016-03-30`, null, false)
 
     return lastCheck.properties.instanceView.substatuses[0].message || lastCheck.properties.instanceView.substatuses[1].message
+  }
+
+  async provision(userPassword) {
+    // TODO: upload the powershell module instead of downloading it. currently we get a "command too long" error
+
+    console.log("Downloading cloudygamer provision module and running it...")
+    const command = `powershell -Command "New-Item -ItemType directory -Path $Env:ProgramFiles\\WindowsPowerShell\\Modules\\CloudyGamer -Force; (New-Object System.Net.WebClient).DownloadFile('http://cloudygamer.com/cloudygamer.psm1', \\\"$Env:ProgramFiles\\WindowsPowerShell\\Modules\\CloudyGamer\\cloudygamer.psm1\\\"); Import-Module CloudyGamer; New-CloudyGamerInstall -Password '${userPassword}'"`
+    await this.runCommand(command)
+
+    console.log("Installer started. This will take around 10-30 minutes. Status will be shown here roughly every minute.")
+    let success = false
+    for (let i = 0; i < 30; i++) {
+      await new Promise(resolve => setTimeout(resolve, 30000))
+
+      const lastLine = await this.checkProvisionStatus()
+      console.log(`Latest status: ${lastLine}`)
+      if (lastLine.includes("All done!")) {
+        success = true
+        break
+      }
+    }
+
+    if (success) {
+      console.log(`Successfully provisioned the machine. NOTE: Instance is still running!`)
+    } else {
+      console.log(`Polled for ~30 minutes, image failed to be created in time. NOTE: Instance is still running!`)
+    }
+  }
+
+  async checkProvisionStatus() {
+    return await this.runCommand(`powershell -command "Get-Content 'c:\\cloudygamer\\installer.txt' -Tail 1"`)
+  }
+
+  async runningStatus() {
+    const instance = await this.azureRequest("GET", `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Compute/virtualMachines/{vm}/InstanceView?api-version=2016-04-30-preview`)
+    return instance.statuses.find((status) => {return status.code.startsWith("PowerState")}).code.substr(11)
+  }
+
+  async startInstance() {
+    console.log("Starting instance...")
+    await this.azureRequest("POST", `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Compute/virtualMachines/{vm}/start?api-version=2016-04-30-preview`, null, false)
+  }
+
+  async stopInstance() {
+    console.log("Deallocating instance...")
+    await this.azureRequest("POST", `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Compute/virtualMachines/{vm}/deallocate?api-version=2016-04-30-preview`, null, false)
   }
 
   async login() {
@@ -173,12 +226,5 @@ class CloudyGamerAzure {
 
   async logout() {
     this.adal.logout()
-  }
-
-  async test() {
-    // console.log("test starting")
-    // //const res = await this.createVM("superSecret123Pass")
-    // const res = await this.runCommand("powershell 'ls c:/'")
-    // console.log(`test done`)
   }
 }
