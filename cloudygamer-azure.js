@@ -1,3 +1,5 @@
+// TODO: vnc not being installed with proper password
+
 (async function(){}) /* JustInTimeBabel will re-run this script */
 
 const RESOURCE_GROUP_NAME = "cloudygamer"
@@ -213,6 +215,11 @@ class CloudyGamerAzure {
   async startInstance() {
     console.log("Starting instance...")
     await this.azureRequest("POST", `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Compute/virtualMachines/{vm}/start?api-version=2016-04-30-preview`, null, false)
+  }
+
+  async restartInstance() {
+    console.log("Restarting instance...")
+    await this.azureRequest("POST", `/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Compute/virtualMachines/{vm}/restart?api-version=2016-04-30-preview`, null, false)
   }
 
   async stopInstance() {
