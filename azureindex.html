@@ -1,0 +1,55 @@
+<script src="https://secure.aadcdn.microsoftonline-p.com/lib/1.0.13/js/adal.min.js"></script>
+<script src="cloudygamer-azure.js"></script>
+
+<a href="#" onclick="cga.login();">login</a><br/>
+<a href="#" onclick="cga.logout();">logout</a><br/>
+<a href="#" onclick="check();">check</a><br/>
+<a href="#" onclick="testCommand();">test command</a><br/>
+<br/>
+<a href="#" onclick="createResources();">create resources</a><br/>
+<a href="#" onclick="provision();">provision</a><br/>
+<a href="#" onclick="checkProvisionStatus();">check provision status</a><br/>
+<br/>
+<a href="#" onclick="isInstanceRunning();">is instance running?</a><br/>
+<a href="#" onclick="cga.startInstance();">start instance</a><br/>
+<a href="#" onclick="cga.restartInstance();">restart instance</a><br/>
+<a href="#" onclick="cga.stopInstance();">stop instance</a><br/>
+
+<script type="text/javascript">
+  const cga = new CloudyGamerAzure({
+    tenant: "875677b9-62d0-4c8b-8702-0c73da92e1ad",
+    clientId: "807443a9-5e5c-4055-a70f-41ee46a053f8",
+    location: "southcentralus"
+  })
+
+  async function check() {
+    if (await cga.doesResourceGroupExist())
+      console.log("it does!")
+    else
+      console.log("it doesnt!")
+  }
+
+  async function createResources() {
+    await cga.createVM("superSecret123Pass")
+    console.log("all done!")
+  }
+
+  async function testCommand() {
+    console.log("getting the date...")
+    console.log(await cga.runCommand("powershell -command \"date\""))
+  }
+
+  async function provision() {
+    await cga.provision("superSecret123Pass")
+  }
+
+  async function checkProvisionStatus() {
+    console.log("getting status...")
+    console.log(await cga.checkProvisionStatus())
+  }
+
+  async function isInstanceRunning() {
+    console.log("getting instance status...")
+    console.log(await cga.runningStatus())
+  }
+</script>

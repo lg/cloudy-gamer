@@ -1,6 +1,7 @@
 <head>
   <meta charset="utf-8" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/aws-sdk/2.7.19/aws-sdk.min.js"></script>
+  <script src="https://secure.aadcdn.microsoftonline-p.com/lib/1.0.13/js/adal.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lockr/0.8.4/lockr.min.js"></script>
   <script src="just-in-time-babel.js"></script>
 
@@ -19,6 +20,14 @@
 
 cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and help</a><br/><br/>
 
+<details id="cloud-provider-panel">
+  <summary>Cloud provider</summary>
+  <div>
+    <input type="radio" name="cloudProvider" id="awsRadio" checked style='margin-right: 10px; vertical-align: middle'><img src="aws.svg" style="width:100px; margin-bottom: 10px; vertical-align:middle" />
+    <!--<input type="radio" name="cloudProvider" id="azureRadio" style='margin-left: 30px; margin-right: 10px; vertical-align: middle'><img src="azure.svg" style="width:200px; vertical-align:middle; " />-->
+  </div>
+</details>
+
 <details id="aws-config-panel">
   <summary>AWS configuration</summary>
   <div>
@@ -32,6 +41,12 @@ cloudygamer - <a href="https://github.com/lg/cloudy-gamer/">github source and he
       Note 1: Use <a href='user-policy.txt' target='_blank'>this</a> policy for your AWS user<br/>
       Note 2: Your awsIAMRoleName needs at least the AmazonEC2RoleforSSM policy attached to it</a>
     </p>
+  </div>
+</details>
+
+<details id="azure-config-panel" style="display: none">
+  <summary>Azure configuration</summary>
+  <div>
   </div>
 </details>
 
