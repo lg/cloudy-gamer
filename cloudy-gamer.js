@@ -5,6 +5,9 @@ const VPC_NAME = "cloudygamervpc"
 const SECURITY_GROUP_NAME = "cloudygamer"
 const BOOT_AMI_NAME = "cloudygamer-loader5"
 const BOOT_AMI_OWNER = "255191696678"
+// Not all regions have Lambda available so always create functions in this
+// region instead of the one that is input
+const LAMBDA_REGION = "us-west-2"
 
 class CloudyGamer {
   constructor(config) {
@@ -91,14 +94,16 @@ class CloudyGamer {
     console.log("  Creating VPC Security Group...")
     const securityGroup = await this.ec2.createSecurityGroup({GroupName: SECURITY_GROUP_NAME, Description: "cloudygamer", VpcId: vpc.Vpc.VpcId}).promise()
 
+    console.log("  Finding client IP Address...")
+    const clientCidrIp = (await this.getIpAddr()) + "/32"
     console.log("  Adding firewall rules to Security Group...")
     await this.ec2.authorizeSecurityGroupIngress({
       GroupId: securityGroup.GroupId,
       IpPermissions: [
-        {FromPort: 3389, IpProtocol: "tcp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 3389},   // RDP
-        {FromPort: 5900, IpProtocol: "tcp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 5900},   // VNC
-        {FromPort: 9993, IpProtocol: "udp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 9993},   // Zerotier
-        {FromPort: -1, IpProtocol: "icmp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: -1}       // Ping
+        {FromPort: 3389, IpProtocol: "tcp", IpRanges: [{CidrIp: clientCidrIp}], ToPort: 3389},   // RDP
+        {FromPort: 5900, IpProtocol: "tcp", IpRanges: [{CidrIp: clientCidrIp}], ToPort: 5900},   // VNC
+        {FromPort: 9993, IpProtocol: "udp", IpRanges: [{CidrIp: clientCidrIp}], ToPort: 9993},   // Zerotier
+        {FromPort: -1, IpProtocol: "icmp", IpRanges: [{CidrIp: clientCidrIp}], ToPort: -1}       // Ping
       ]
     }).promise()
 
@@ -116,14 +121,16 @@ class CloudyGamer {
     console.log("  Creating non-VPC Security Group...")
     const securityGroup = await this.ec2.createSecurityGroup({GroupName: SECURITY_GROUP_NAME, Description: "cloudygamer"}).promise()
 
+    console.log("  Finding client IP Address...")
+    const clientCidrIp = (await this.getIpAddr()) + "/32"
     console.log("  Adding firewall rules to Security Group...")
     await this.ec2.authorizeSecurityGroupIngress({
       GroupId: securityGroup.GroupId,
       IpPermissions: [
-        {FromPort: 3389, IpProtocol: "tcp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 3389},   // RDP
-        {FromPort: 5900, IpProtocol: "tcp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 5900},   // VNC
-        {FromPort: 9993, IpProtocol: "udp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: 9993},   // Zerotier
-        {FromPort: -1, IpProtocol: "icmp", IpRanges: [{CidrIp: "0.0.0.0/0"}], ToPort: -1}       // Ping
+        {FromPort: 3389, IpProtocol: "tcp", IpRanges: [{CidrIp: clientCidrIp}], ToPort: 3389},   // RDP
+        {FromPort: 5900, IpProtocol: "tcp", IpRanges: [{CidrIp: clientCidrIp}], ToPort: 5900},   // VNC
+        {FromPort: 9993, IpProtocol: "udp", IpRanges: [{CidrIp: clientCidrIp}], ToPort: 9993},   // Zerotier
+        {FromPort: -1, IpProtocol: "icmp", IpRanges: [{CidrIp: clientCidrIp}], ToPort: -1}       // Ping
       ]
     }).promise()
 
@@ -427,5 +434,23 @@ class CloudyGamer {
     }
 
     throw new Error("cloudygamer instance not found")
+  }
+
+  async getIpAddr() {
+    const cfn = new AWS.CloudFormation({region: LAMBDA_REGION})
+    const stackTemplate = await (await fetch("get-ip.yml")).text()
+    const stackId = (await cfn.createStack({
+      StackName: "cloudygamer-get-ip-" + Math.random().toString(36).substring(7),
+      TemplateBody: stackTemplate,
+      Capabilities: [ 'CAPABILITY_IAM' ]
+    }).promise()).StackId
+    const stackOutput = await cfn.waitFor("stackCreateComplete", {StackName: stackId}).promise()
+    const getIpUrl = stackOutput.Stacks[0].Outputs[0].OutputValue;
+    const clientIp = JSON.parse(await (await fetch(getIpUrl)).text()).ip;
+
+    // Don't need to wait for this to finish to continue
+    cfn.deleteStack({StackName: stackId}).promise()
+
+    return clientIp
   }
 }

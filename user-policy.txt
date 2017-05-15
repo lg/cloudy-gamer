@@ -7,7 +7,10 @@
             "Action": [
                 "ec2:*",
                 "ssm:*",
-                "iam:PassRole"
+                "iam:*",
+                "cloudformation:*",
+                "lambda:*",
+                "apigateway:*"
             ],
             "Resource": [
                 "*"
