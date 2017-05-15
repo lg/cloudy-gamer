@@ -1,0 +1,125 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "API Gateway and Lambda function to return the client IP address"
+Parameters:
+  ApiDeploymentStageName:
+    Type: "String"
+    Default: "main"
+  ResourcePathPart:
+    Type: "String"
+    Default: "get-ip"
+Outputs:
+  GetIpUrl:
+    Value: !Sub "https://${GetIpRestApi}.execute-api.${AWS::Region}.amazonaws.com/${ApiDeploymentStageName}/${ResourcePathPart}"
+Resources:
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: "LambdaRole"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
+  GetIpLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaRole.Arn
+      Timeout: 3
+      Runtime: nodejs4.3
+      Code:
+        ZipFile: !Sub |
+          exports.handler = function(event, context, callback) {
+            callback(null, {ip: event.ip});
+          }
+  ApiRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "apigateway.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: "LambdaRole"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "lambda:InvokeFunction"
+                  - "lambda:InvokeAsync"
+                Resource: "*"
+  GetIpRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Join [ "", [ !Ref "AWS::StackName", "-get-ip" ] ]
+  GetIpResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt GetIpRestApi.RootResourceId
+      PathPart: !Ref ResourcePathPart
+      RestApiId: !Ref GetIpRestApi
+  GetIpGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref GetIpRestApi
+      ResourceId: !Ref GetIpResource
+      HttpMethod: 'GET'
+      AuthorizationType: 'NONE'
+      Integration:
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseTemplates:
+              application/json: !Ref AWS::NoValue
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type'"
+              method.response.header.Access-Control-Allow-Methods: "'GET'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+        PassthroughBehavior: WHEN_NO_MATCH
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path//2015-03-31/functions/${GetIpLambdaArn}/invocations
+          - GetIpLambdaArn: !GetAtt GetIpLambda.Arn
+        Type: AWS
+        IntegrationHttpMethod: 'POST'
+        Credentials: !GetAtt ApiRole.Arn
+        RequestTemplates:
+          application/json: !Sub |
+            #set($inputRoot = $input.path('$'))
+            {
+              "ip": "$context.identity.sourceIp"
+            }
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+  GetIpRestApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: GetIpGetMethod
+    Properties:
+      RestApiId: !Ref GetIpRestApi
+      StageName: !Ref ApiDeploymentStageName
