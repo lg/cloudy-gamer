@@ -5,6 +5,9 @@ const VPC_NAME = "cloudygamervpc"
 const SECURITY_GROUP_NAME = "cloudygamer"
 const BOOT_AMI_NAME = "cloudygamer-loader5"
 const BOOT_AMI_OWNER = "255191696678"
+// Not all regions have Lambda available so always create functions in this
+// region instead of the one that is input
+const LAMBDA_REGION = "us-west-2"
 
 class CloudyGamer {
   constructor(config) {
@@ -20,7 +23,6 @@ class CloudyGamer {
 
     this.ec2 = new AWS.EC2()
     this.ssm = new AWS.SSM()
-    this.cfn = new AWS.CloudFormation()
 
     this.securityGroupId = null
     this.vpcSecurityGroupId = null
@@ -435,18 +437,19 @@ class CloudyGamer {
   }
 
   async getIpAddr() {
+    const cfn = new AWS.CloudFormation({region: LAMBDA_REGION})
     const stackTemplate = await (await fetch("get-ip.yml")).text()
-    const stackId = (await this.cfn.createStack({
+    const stackId = (await cfn.createStack({
       StackName: "cloudygamer-get-ip-" + Math.random().toString(36).substring(7),
       TemplateBody: stackTemplate,
       Capabilities: [ 'CAPABILITY_IAM' ]
     }).promise()).StackId
-    const stackOutput = await this.cfn.waitFor("stackCreateComplete", {StackName: stackId}).promise()
+    const stackOutput = await cfn.waitFor("stackCreateComplete", {StackName: stackId}).promise()
     const getIpUrl = stackOutput.Stacks[0].Outputs[0].OutputValue;
     const clientIp = JSON.parse(await (await fetch(getIpUrl)).text()).ip;
 
     // Don't need to wait for this to finish to continue
-    this.cfn.deleteStack({StackName: stackId}).promise()
+    cfn.deleteStack({StackName: stackId}).promise()
 
     return clientIp
   }
