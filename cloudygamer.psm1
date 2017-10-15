@@ -183,8 +183,7 @@ workflow Install-CloudyGamer {
       # Nvidia GRID K520
       $drivers = (New-Object System.Net.WebClient).DownloadString("http://www.nvidia.com/Download/processFind.aspx?psid=94&pfid=704&osid=57&lid=1&whql=1&lang=en-us&ctk=0")
       $driverversion = $($drivers -match '<td class="gridItem">R.*\((.*)\)</td>' | Out-Null; $Matches[1])
-      (New-Object System.Net.WebClient).DownloadFile("http://us.download.nvidia.com/Windows/Quadro_Certified/$driverversion/$driverversion-quadro-grid-desktop-notebook-win10-64bit-international-whql.exe", "c:\cloudygamer\downloads\nvidia.exe")
-
+      (New-Object System.Net.WebClient).DownloadFile("http://us.download.nvidia.com/Windows/Quadro_Certified/GRID/$driverversion/Quadro-Passthrough/$driverversion-quadro-grid-desktop-notebook-win10-64bit-international-whql.exe", "c:\cloudygamer\downloads\nvidia.exe")
     } else {
       # Nvidia Tesla M60
       $drivers = (New-Object System.Net.WebClient).DownloadString("http://www.nvidia.com/Download/processFind.aspx?psid=75&pfid=783&osid=74&lid=1&whql=1&lang=en-us&ctk=16")
