@@ -225,6 +225,7 @@ class CloudyGamer {
       blockDeviceMappings = image.Images[0].BlockDeviceMappings
       blockDeviceMappings[0].Ebs.DeleteOnTermination = false
       blockDeviceMappings[0].Ebs.VolumeSize = newEBSVolumeSize
+      delete blockDeviceMappings[0].Ebs.Encrypted;
     }
 
     console.log("Requesting spot instance...")
