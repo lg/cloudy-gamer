@@ -225,6 +225,15 @@ class CloudyGamer {
       blockDeviceMappings = image.Images[0].BlockDeviceMappings
       blockDeviceMappings[0].Ebs.DeleteOnTermination = false
       blockDeviceMappings[0].Ebs.VolumeSize = newEBSVolumeSize
+      
+      /*
+        When requesting spot instance, AWS will error out with message:
+        "State failed: Parameter encrypted is invalid. You cannot specify the encrypted flag if specifying a snapshot id in a block device mapping."
+        
+        https://forums.aws.amazon.com/thread.jspa?messageID=780310
+        We are just going to delete the Encrypted parameter on the Ebs object, like it was suggested in the link above
+      */
+
       delete blockDeviceMappings[0].Ebs.Encrypted;
     }
 
